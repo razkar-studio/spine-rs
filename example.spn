@@ -1,0 +1,90 @@
+app
+| name = Spine Control System
+| version = 0.1.0
+| mode = production
+
+system
+| runtime
+| | env = production
+| | region = eu-central-1
+| | timezone = UTC
+|
+| limits
+| | cpu = 4
+| | memory = 8GB
+| | io = high
+|
+| logging
+| | level = info
+| | format = json
+| | sinks
+| | | - stdout
+| | | - file
+| | | | path = "/var/log/spine.log"
+| | | | rotation = daily
+
+database
+| primary
+| | driver = postgres
+| | host = db.primary.local
+| | port = 5432
+| | credentials
+| | | user = admin
+| | | password = "secret"
+| | | auth
+| | | | method = scram-sha-256
+|
+| replicas
+| | -
+| | | host = db.replica-1.local
+| | | lag = low
+| | -
+| | | host = db.replica-2.local
+| | | lag = medium
+
+services
+| api
+| | host = 0.0.0.0
+| | port = 8080
+| | routes
+| | | - /health
+| | | - /status
+| | | - /v1/users
+| | | - /v1/projects
+|
+| worker
+| | threads = 8
+| | queue
+| | | type = redis
+| | | host = queue.local
+| | | port = 6379
+| | | streams
+| | | | - jobs
+| | | | - events
+
+features
+| auth
+| | enabled = true
+| | providers
+| | | - local
+| | | - oauth
+| | | | provider = github
+| | | | client_id = abc123
+|
+| caching
+| | enabled = true
+| | strategy = lru
+| | ttl = 300s
+|
+| telemetry
+| | enabled = true
+| | exporter = otel
+| | endpoint = "https://telemetry.local"
+
+deploy
+| strategy = rolling
+| replicas = 3
+| rollback
+| | enabled = true
+| | threshold = 2
+| | window = 60s
