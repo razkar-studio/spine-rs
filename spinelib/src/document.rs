@@ -13,6 +13,15 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
+    pub fn parse_or_panic(input: &str) -> Self {
+        Self::parse(input).unwrap_or_else(|errors| {
+            for e in &errors {
+                eprintln!("{e}");
+            }
+            std::process::exit(1)
+        })
+    }
+
     pub fn parse(input: &str) -> Result<Self, Vec<String>> {
         let c_input = CString::new(input).map_err(|_| vec!["invalid input string".to_string()])?;
         let ptr = unsafe { ffi::spine_parse(c_input.as_ptr()) };
