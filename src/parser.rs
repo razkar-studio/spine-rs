@@ -98,15 +98,63 @@ impl Parser {
             }
             Some(Token::Newline) | None => {
                 self.skip_newlines();
-                let mut child_fields = Vec::new();
-                while self.current_depth() == depth + 1 {
-                    self.parse_statement(&mut child_fields, depth + 1);
-                    self.skip_comments_and_newlines();
+
+                let is_array = self.is_array_block(depth + 1);
+
+                if is_array {
+                    let mut entries = Vec::new();
+                    while self.current_depth() == depth + 1 {
+                        self.consume_pipes(depth + 1);
+                        match self.peek().cloned() {
+                            Some(Token::Dash) => {
+                                self.advance();
+                                self.skip_newlines();
+                                if self.current_depth() == depth + 2 {
+                                    let mut child_fields = Vec::new();
+                                    while self.current_depth() == depth + 2 {
+                                        self.parse_statement(&mut child_fields, depth + 2);
+                                        self.skip_comments_and_newlines();
+                                    }
+                                    entries.push(Value::Object(child_fields));
+                                } else {
+                                    match self.peek().cloned() {
+                                        Some(Token::Newline) | None => entries.push(Value::Null),
+                                        _ => {
+                                            let v = self.parse_value();
+                                            entries.push(v);
+                                        }
+                                    }
+                                }
+                            }
+                            _ => break,
+                        }
+                        self.skip_comments_and_newlines();
+                    }
+                    merge_into(fields, name, Value::Array(entries));
+                } else {
+                    let mut child_fields = Vec::new();
+                    while self.current_depth() == depth + 1 {
+                        self.parse_statement(&mut child_fields, depth + 1);
+                        self.skip_comments_and_newlines();
+                    }
+                    merge_into(fields, name, Value::Object(child_fields));
                 }
-                merge_into(fields, name, Value::Object(child_fields));
             }
             _ => {}
         }
+    }
+
+    fn is_array_block(&self, depth: usize) -> bool {
+        let mut i = self.pos;
+        let mut pipes = 0;
+        while let Some(Token::Pipe) = self.tokens.get(i) {
+            pipes += 1;
+            i += 1;
+        }
+        if pipes != depth {
+            return false;
+        }
+        matches!(self.tokens.get(i), Some(Token::Dash))
     }
 
     fn parse_value(&mut self) -> Value {

@@ -3,6 +3,7 @@ use crate::Token;
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
+    line_pipes: usize,
 }
 
 impl Lexer {
@@ -10,6 +11,7 @@ impl Lexer {
         Self {
             input: input.chars().collect(),
             pos: 0,
+            line_pipes: 0,
         }
     }
 
@@ -111,28 +113,66 @@ impl Lexer {
     }
 
     fn lex_multiline_string(&mut self) -> Token {
-        // placeholder
-        let mut s = String::new();
+        let depth = self.line_pipes;
+
+        while let Some(c) = self.peek() {
+            if c == '\n' {
+                self.advance();
+                break;
+            }
+            self.advance();
+        }
+
+        let mut lines = Vec::new();
+
         loop {
-            match (
-                self.peek(),
-                self.input.get(self.pos + 1).copied(),
-                self.input.get(self.pos + 2).copied(),
-            ) {
-                (Some('"'), Some('"'), Some('"')) => {
+            if self.is_at_end() {
+                break;
+            }
+
+            let saved = self.pos;
+
+            let mut pipes = 0;
+            while let Some(c) = self.peek() {
+                if c == ' ' || c == '\t' {
                     self.advance();
+                } else if c == '|' && pipes < depth {
+                    pipes += 1;
                     self.advance();
+                } else {
+                    break;
+                }
+            }
+            if self.peek() == Some(' ') {
+                self.advance();
+            }
+
+            if self.peek() == Some('"')
+                && self.input.get(self.pos + 1).copied() == Some('"')
+                && self.input.get(self.pos + 2).copied() == Some('"')
+            {
+                self.advance();
+                self.advance();
+                self.advance();
+                break;
+            }
+
+            self.pos = saved;
+            let mut line = String::new();
+            while let Some(c) = self.peek() {
+                if c == '\n' {
                     self.advance();
                     break;
                 }
-                (Some(c), _, _) => {
-                    s.push(c);
-                    self.advance();
-                }
-                _ => break,
+                line.push(c);
+                self.advance();
             }
+
+            let stripped = strip_leading_pipes(&line, depth);
+            lines.push(stripped);
         }
-        Token::Str(s.trim().to_string())
+
+        Token::Str(lines.join("\n"))
     }
 
     fn lex_number(&mut self) -> Token {
@@ -156,6 +196,45 @@ impl Lexer {
                 self.advance();
             } else {
                 break;
+            }
+        }
+
+        if self.peek() == Some('.') {
+            if let Some(&next) = self.input.get(self.pos + 1) {
+                if next.is_alphabetic() {
+                    let mut lookahead = self.pos + 1;
+                    while let Some(&c) = self.input.get(lookahead) {
+                        if c.is_alphanumeric() || c == '_' || c == '-' {
+                            lookahead += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    if self.input.get(lookahead) == Some(&'"') {
+                        self.advance();
+                        let mut tag_suffix = String::new();
+                        while let Some(c) = self.peek() {
+                            if c.is_alphanumeric() || c == '_' || c == '-' {
+                                tag_suffix.push(c);
+                                self.advance();
+                            } else {
+                                break;
+                            }
+                        }
+                        let full_tag = format!("{}.{}", s, tag_suffix);
+                        self.advance();
+                        let mut content = String::new();
+                        while let Some(c) = self.peek() {
+                            if c == '"' {
+                                self.advance();
+                                break;
+                            }
+                            content.push(c);
+                            self.advance();
+                        }
+                        return Token::Tagged(full_tag, content);
+                    }
+                }
             }
         }
 
@@ -189,13 +268,22 @@ impl Lexer {
                 ' ' | '\t' => {
                     self.advance();
                 }
+                '|' => {
+                    self.line_pipes += 1;
+                    tokens.push(Token::Pipe);
+                    self.advance();
+                }
                 '\n' => {
                     tokens.push(Token::Newline);
                     self.advance();
-                }
-                '|' => {
-                    tokens.push(Token::Pipe);
-                    self.advance();
+                    self.line_pipes = 0;
+                    let mut lookahead = self.pos;
+                    while let Some('|') | Some(' ') | Some('\t') = self.input.get(lookahead) {
+                        if self.input[lookahead] == '|' {
+                            self.line_pipes += 1;
+                        }
+                        lookahead += 1;
+                    }
                 }
                 '=' => {
                     tokens.push(Token::Equals);
@@ -226,4 +314,25 @@ impl Lexer {
 
         tokens
     }
+}
+
+fn strip_leading_pipes(line: &str, depth: usize) -> String {
+    let mut chars = line.chars().peekable();
+    let mut stripped = 0;
+    while stripped < depth {
+        match chars.peek() {
+            Some(' ') | Some('\t') => {
+                chars.next();
+            }
+            Some('|') => {
+                chars.next();
+                stripped += 1;
+            }
+            _ => break,
+        }
+    }
+    if chars.peek() == Some(&' ') {
+        chars.next();
+    }
+    chars.collect()
 }
