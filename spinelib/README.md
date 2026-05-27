@@ -16,6 +16,23 @@ let host = doc.root()
 println!("{host:?}"); // Some("localhost")
 ```
 
+<details>
+    <summary>Error Output</summary>
+
+Spine uses a boxed-based error format, which share the same similarities to pipes if you squint hard enough.
+
+```
+┌─ error: duplicate-key
+│  <input>
+├─ 1:1 host = localhost
+│      ^^^^ first defined here
+├─ 2:1 host = example.com
+│      ^^^^ redefined here
+└─ 'host' was already defined
+```
+
+</details>
+
 ## License
 
 MIT OR Apache-2.0
