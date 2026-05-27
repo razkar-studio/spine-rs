@@ -12,7 +12,7 @@ fn test_basic_object() {
     let src = "server\n| host = localhost\n| port = 8080\n";
     let tokens = Lexer::new(src).tokenize();
     // println!("{tokens:?}");
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -27,7 +27,7 @@ fn test_append() {
     let src = "~packages\n| name = react\n~packages\n| name = vue\n";
     let tokens = Lexer::new(src).tokenize();
     // println!("{tokens:?}");
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -45,7 +45,7 @@ fn test_append() {
 fn test_array_block() {
     let src = "features\n| - auth\n| - sync\n| - metrics\n";
     let tokens = Lexer::new(src).tokenize();
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -63,7 +63,7 @@ fn test_array_block() {
 fn test_array_objects() {
     let src = "array\n| -\n| | message = \"Works\"\n| -\n| | message = \"yeah\"\n";
     let tokens = Lexer::new(src).tokenize();
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -81,7 +81,7 @@ fn test_array_objects() {
 fn test_multiline_string() {
     let src = "server\n| query = \"\"\"\n| | SELECT *\n| | FROM users\n| | \"\"\"\n";
     let tokens = Lexer::new(src).tokenize();
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -104,7 +104,7 @@ fn test_multiline_string() {
 fn test_tagged_literals() {
     let src = "created = date\"2026-05-26\"\nexpires = std.date\"2027-01-01\"\n";
     let tokens = Lexer::new(src).tokenize();
-    let value = Parser::new(tokens).parse();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
     println!("{value:?}");
 
     if let Value::Object(fields) = value {
@@ -113,4 +113,16 @@ fn test_tagged_literals() {
     } else {
         panic!("expected object");
     }
+}
+
+#[test]
+fn test_duplicate_key_error() {
+    let src = "host = localhost\nhost = example.com\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert_eq!(errors.len(), 1);
+    println!("{}", errors[0]);
 }

@@ -1,21 +1,51 @@
-use crate::{Token, Value};
+use crate::{SpannedToken, Token, Value};
+
+use farben::prelude::*;
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<SpannedToken>,
     pos: usize,
+    pub errors: Vec<String>,
+    source: Option<String>,
+    source_lines: Vec<String>,
+    // (line, col, source_line)
+    key_spans: std::collections::HashMap<String, (usize, usize, String)>,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+    pub fn new(tokens: Vec<SpannedToken>, source_text: &str) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            errors: Vec::new(),
+            source: None,
+            source_lines: source_text.lines().map(|l| l.to_string()).collect(),
+            key_spans: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn with_source(mut self, source: &str) -> Self {
+        self.source = Some(source.to_string());
+        self
+    }
+
+    fn get_source_line(&self, line: usize) -> &str {
+        self.source_lines
+            .get(line.saturating_sub(1))
+            .map(|s| s.as_str())
+            .unwrap_or("")
     }
 
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+        self.tokens.get(self.pos).map(|(t, _, _)| t)
+    }
+
+    fn peek_span(&self) -> Option<(usize, usize)> {
+        self.tokens.get(self.pos).map(|(_, l, c)| (*l, *c))
     }
 
     fn advance(&mut self) -> Option<&Token> {
-        let t = self.tokens.get(self.pos);
+        let t = self.tokens.get(self.pos).map(|(t, _, _)| t);
         self.pos += 1;
         t
     }
@@ -42,7 +72,7 @@ impl Parser {
     fn current_depth(&mut self) -> usize {
         let mut depth = 0;
         let mut lookahead = self.pos;
-        while let Some(Token::Pipe) = self.tokens.get(lookahead) {
+        while let Some((Token::Pipe, _, _)) = self.tokens.get(lookahead) {
             depth += 1;
             lookahead += 1;
         }
@@ -70,8 +100,9 @@ impl Parser {
                 self.advance();
             }
             Some(Token::Ident(name)) => {
+                let (line, col) = self.peek_span().unwrap_or((0, 0));
                 self.advance();
-                self.parse_ident(name, fields, depth);
+                self.parse_ident(name, fields, depth, line, col);
             }
             _ => {
                 self.advance();
@@ -79,22 +110,29 @@ impl Parser {
         }
     }
 
-    fn parse_ident(&mut self, name: String, fields: &mut Vec<(String, Value)>, depth: usize) {
+    fn parse_ident(
+        &mut self,
+        name: String,
+        fields: &mut Vec<(String, Value)>,
+        depth: usize,
+        line: usize,
+        col: usize,
+    ) {
         match self.peek().cloned() {
             Some(Token::Dot) => {
                 self.advance();
                 if let Some(Token::Ident(next)) = self.peek().cloned() {
                     self.advance();
                     let mut child_fields = Vec::new();
-                    self.parse_ident(next, &mut child_fields, depth);
-                    merge_into(fields, name, Value::Object(child_fields));
+                    self.parse_ident(next, &mut child_fields, depth, line, col);
+                    self.merge_into(fields, name, Value::Object(child_fields), line, col);
                 }
             }
             Some(Token::Equals) => {
                 self.advance();
                 let value = self.parse_value();
                 self.skip_newlines();
-                merge_into(fields, name, value);
+                self.merge_into(fields, name, value, line, col);
             }
             Some(Token::Newline) | None => {
                 self.skip_newlines();
@@ -130,14 +168,14 @@ impl Parser {
                         }
                         self.skip_comments_and_newlines();
                     }
-                    merge_into(fields, name, Value::Array(entries));
+                    self.merge_into(fields, name, Value::Array(entries), line, col);
                 } else {
                     let mut child_fields = Vec::new();
                     while self.current_depth() == depth + 1 {
                         self.parse_statement(&mut child_fields, depth + 1);
                         self.skip_comments_and_newlines();
                     }
-                    merge_into(fields, name, Value::Object(child_fields));
+                    self.merge_into(fields, name, Value::Object(child_fields), line, col);
                 }
             }
             _ => {}
@@ -147,14 +185,14 @@ impl Parser {
     fn is_array_block(&self, depth: usize) -> bool {
         let mut i = self.pos;
         let mut pipes = 0;
-        while let Some(Token::Pipe) = self.tokens.get(i) {
+        while let Some((Token::Pipe, _, _)) = self.tokens.get(i) {
             pipes += 1;
             i += 1;
         }
         if pipes != depth {
             return false;
         }
-        matches!(self.tokens.get(i), Some(Token::Dash))
+        matches!(self.tokens.get(i), Some((Token::Dash, _, _)))
     }
 
     fn parse_value(&mut self) -> Value {
@@ -216,7 +254,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Value {
+    pub fn parse(&mut self) -> Result<Value, Vec<String>> {
         let mut fields: Vec<(String, Value)> = Vec::new();
 
         self.skip_comments_and_newlines();
@@ -226,23 +264,125 @@ impl Parser {
             self.skip_comments_and_newlines();
         }
 
-        Value::Object(fields)
+        if self.errors.is_empty() {
+            Ok(Value::Object(fields))
+        } else {
+            Err(self.errors.clone())
+        }
     }
-}
 
-fn merge_into(fields: &mut Vec<(String, Value)>, key: String, value: Value) {
-    if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &key) {
-        let merged = match (std::mem::take(&mut existing.1), value) {
-            (Value::Object(mut a), Value::Object(b)) => {
-                for (k, v) in b {
-                    merge_into(&mut a, k, v);
-                }
-                Value::Object(a)
+    // --- //
+
+    fn format_error(
+        &self,
+        kind: &str,
+        message: &str,
+        // (line, col, source_line, token_len, note)
+        lines: &[(usize, usize, &str, usize, Option<&str>)],
+    ) -> String {
+        let filename = self.source.as_deref().unwrap_or("<input>");
+
+        let max_line_width = lines
+            .iter()
+            .map(|(l, _, _, _, _)| l.to_string().len())
+            .max()
+            .unwrap_or(1);
+
+        let mut out = String::new();
+
+        out += &color_fmt!("[dim]┌─[/] [bold red]error[/]: [bold]{}\n", kind);
+        out += &color_fmt!("[dim]│[/]  {}\n", filename);
+
+        for (line, col, source_line, token_len, note) in lines {
+            let line_str = format!("{:>width$}", line, width = max_line_width);
+            let col_str = format!("{}", col);
+            let gutter_len = 3 + line_str.len() + 1 + col_str.len() + 1;
+            let caret_pad = gutter_len + col;
+            let carets = format!("{:>pad$}", "^".repeat(*token_len), pad = caret_pad);
+
+            out += &color_fmt!(
+                "[dim]├─[/] [cyan]{}:{}[/] {}\n",
+                line_str,
+                col_str,
+                source_line
+            );
+
+            if let Some(note_text) = note {
+                out += &color_fmt!("[dim]│[/]  [red]{}[/] [red]{}\n[/]", carets, note_text);
+            } else {
+                out += &color_fmt!("[dim]│[/]  [red]{}\n[/]", carets);
             }
-            _ => panic!("conflict: duplicate key '{key}'"),
-        };
-        existing.1 = merged;
-    } else {
-        fields.push((key, value));
+        }
+
+        out += &color_fmt!("[dim]└─[/] [bold]{}", message);
+
+        out
+    }
+
+    fn merge_into(
+        &mut self,
+        fields: &mut Vec<(String, Value)>,
+        key: String,
+        value: Value,
+        line: usize,
+        col: usize,
+    ) {
+        if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &key) {
+            match (std::mem::take(&mut existing.1), value) {
+                (Value::Object(mut a), Value::Object(b)) => {
+                    for (k, v) in b {
+                        self.merge_into(&mut a, k, v, line, col);
+                    }
+                    existing.1 = Value::Object(a);
+                }
+                (old, _new) => {
+                    existing.1 = old;
+                    let current_source = self.get_source_line(line).to_string();
+                    let token_len = key.len();
+
+                    let error = if let Some((first_line, first_col, first_source)) =
+                        self.key_spans.get(&key).cloned()
+                    {
+                        self.format_error(
+                            "duplicate-key",
+                            &format!("'{}' was already defined", key),
+                            &[
+                                (
+                                    first_line,
+                                    first_col,
+                                    first_source.as_str(),
+                                    token_len,
+                                    Some("first defined here"),
+                                ),
+                                (
+                                    line,
+                                    col,
+                                    &current_source,
+                                    token_len,
+                                    Some("redefined here"),
+                                ),
+                            ],
+                        )
+                    } else {
+                        self.format_error(
+                            "duplicate-key",
+                            &format!("'{}' was already defined", key),
+                            &[(
+                                line,
+                                col,
+                                &current_source,
+                                token_len,
+                                Some("redefined here"),
+                            )],
+                        )
+                    };
+                    self.errors.push(error);
+                }
+            }
+        } else {
+            let source_line = self.get_source_line(line).to_string();
+            self.key_spans.insert(key.clone(), (line, col, source_line));
+            fields.push((key, value));
+        }
     }
 }

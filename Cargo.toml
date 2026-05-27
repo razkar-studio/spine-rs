@@ -1,6 +1,8 @@
-[package]
-name = "spine-rs"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+    "spine-c", "spine-rs", "spinelib"
+]
+resolver = "3"
 
-[dependencies]
+[workspace.dependencies]
+spine-rs = { path = "spine-rs", version = "0.1.0"}

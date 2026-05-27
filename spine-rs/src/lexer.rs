@@ -1,9 +1,11 @@
-use crate::Token;
+use crate::{SpannedToken, Token};
 
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
     line_pipes: usize,
+    line: usize,
+    col: usize,
 }
 
 impl Lexer {
@@ -12,6 +14,8 @@ impl Lexer {
             input: input.chars().collect(),
             pos: 0,
             line_pipes: 0,
+            line: 1,
+            col: 1,
         }
     }
 
@@ -22,6 +26,16 @@ impl Lexer {
     fn advance(&mut self) -> Option<char> {
         let c = self.input.get(self.pos).copied();
         self.pos += 1;
+        match c {
+            Some('\n') => {
+                self.line += 1;
+                self.col = 1;
+            }
+            Some(_) => {
+                self.col += 1;
+            }
+            None => {}
+        }
         c
     }
 
@@ -260,52 +274,63 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self) -> Vec<SpannedToken> {
         let mut tokens = Vec::new();
 
         while !self.is_at_end() {
+            let line = self.line;
+            let col = self.col;
             match self.peek().unwrap() {
                 ' ' | '\t' => {
                     self.advance();
-                }
-                '|' => {
-                    self.line_pipes += 1;
-                    tokens.push(Token::Pipe);
-                    self.advance();
+                    continue;
                 }
                 '\n' => {
-                    tokens.push(Token::Newline);
+                    tokens.push((Token::Newline, line, col));
                     self.advance();
                     self.line_pipes = 0;
                     let mut lookahead = self.pos;
-                    while let Some('|') | Some(' ') | Some('\t') = self.input.get(lookahead) {
-                        if self.input[lookahead] == '|' {
-                            self.line_pipes += 1;
+                    while let Some(&c) = self.input.get(lookahead) {
+                        match c {
+                            '|' => {
+                                self.line_pipes += 1;
+                                lookahead += 1;
+                            }
+                            ' ' | '\t' => {
+                                lookahead += 1;
+                            }
+                            _ => break,
                         }
-                        lookahead += 1;
                     }
                 }
+                '|' => {
+                    self.line_pipes += 1;
+                    tokens.push((Token::Pipe, line, col));
+                    self.advance();
+                }
                 '=' => {
-                    tokens.push(Token::Equals);
+                    tokens.push((Token::Equals, line, col));
                     self.advance();
                 }
                 '~' => {
-                    tokens.push(Token::Tilde);
+                    tokens.push((Token::Tilde, line, col));
                     self.advance();
                 }
                 '-' => {
-                    tokens.push(Token::Dash);
+                    tokens.push((Token::Dash, line, col));
                     self.advance();
                 }
                 '.' => {
-                    tokens.push(Token::Dot);
+                    tokens.push((Token::Dot, line, col));
                     self.advance();
                 }
-                '#' => tokens.push(self.skip_line_comment()),
-                '/' => tokens.push(self.skip_block_comment()),
-                '"' => tokens.push(self.lex_string()),
-                c if c.is_ascii_digit() => tokens.push(self.lex_number()),
-                c if c.is_alphabetic() || c == '_' => tokens.push(self.lex_ident_or_keyword()),
+                '#' => tokens.push((self.skip_line_comment(), line, col)),
+                '/' => tokens.push((self.skip_block_comment(), line, col)),
+                '"' => tokens.push((self.lex_string(), line, col)),
+                c if c.is_ascii_digit() => tokens.push((self.lex_number(), line, col)),
+                c if c.is_alphabetic() || c == '_' => {
+                    tokens.push((self.lex_ident_or_keyword(), line, col))
+                }
                 _ => {
                     self.advance();
                 }

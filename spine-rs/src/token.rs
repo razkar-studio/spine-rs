@@ -15,3 +15,6 @@ pub enum Token {
     BlockComment(String),
     Tagged(String, String),
 }
+
+// (token, line, col)
+pub type SpannedToken = (Token, usize, usize);
