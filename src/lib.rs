@@ -9,3 +9,6 @@ pub use lexer::Lexer;
 
 pub mod parser;
 pub use parser::Parser;
+
+#[cfg(test)]
+mod tests;

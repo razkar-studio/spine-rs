@@ -227,15 +227,3 @@ impl Lexer {
         tokens
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_basic() {
-        let mut lexer = Lexer::new("server\n| host = localhost\n| port = 8080\n");
-        let tokens = lexer.tokenize();
-        println!("{:?}", tokens);
-    }
-}
