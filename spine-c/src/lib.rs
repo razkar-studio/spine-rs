@@ -40,7 +40,7 @@ pub extern "C" fn spine_parse(input: *const c_char) -> *mut SpineDoc {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_has_errors(doc: *const SpineDoc) -> bool {
+pub const extern "C" fn spine_has_errors(doc: *const SpineDoc) -> bool {
     if doc.is_null() {
         return true;
     }
@@ -66,14 +66,14 @@ pub extern "C" fn spine_doc_root(doc: *const SpineDoc) -> *const SpineValue {
     }
     match unsafe { &(*doc).root } {
         Some(value) => Box::into_raw(Box::new(SpineValue {
-            inner: value as *const Value,
+            inner: std::ptr::from_ref::<Value>(value),
         })),
         None => std::ptr::null(),
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_value_type(val: *const SpineValue) -> c_int {
+pub const extern "C" fn spine_value_type(val: *const SpineValue) -> c_int {
     if val.is_null() {
         return -1;
     }
@@ -89,7 +89,7 @@ pub extern "C" fn spine_value_type(val: *const SpineValue) -> c_int {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_value_bool(val: *const SpineValue) -> bool {
+pub const extern "C" fn spine_value_bool(val: *const SpineValue) -> bool {
     if val.is_null() {
         return false;
     }
@@ -100,7 +100,7 @@ pub extern "C" fn spine_value_bool(val: *const SpineValue) -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_value_number(val: *const SpineValue) -> c_double {
+pub const extern "C" fn spine_value_number(val: *const SpineValue) -> c_double {
     if val.is_null() {
         return 0.0;
     }
@@ -153,7 +153,7 @@ pub extern "C" fn spine_value_tag_content(val: *const SpineValue) -> *mut c_char
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulong {
+pub const extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulong {
     if val.is_null() {
         return 0;
     }
@@ -171,7 +171,7 @@ pub extern "C" fn spine_array_get(val: *const SpineValue, index: c_ulong) -> *co
     match unsafe { &*(*val).inner } {
         Value::Array(arr) => match arr.get(index as usize) {
             Some(v) => Box::into_raw(Box::new(SpineValue {
-                inner: v as *const Value,
+                inner: std::ptr::from_ref::<Value>(v),
             })),
             None => std::ptr::null(),
         },
@@ -180,7 +180,7 @@ pub extern "C" fn spine_array_get(val: *const SpineValue, index: c_ulong) -> *co
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn spine_object_len(val: *const SpineValue) -> c_ulong {
+pub const extern "C" fn spine_object_len(val: *const SpineValue) -> c_ulong {
     if val.is_null() {
         return 0;
     }
@@ -223,7 +223,7 @@ pub extern "C" fn spine_object_get(
     match unsafe { &*(*val).inner } {
         Value::Object(fields) => match fields.iter().find(|(k, _)| k == key_str) {
             Some((_, v)) => Box::into_raw(Box::new(SpineValue {
-                inner: v as *const Value,
+                inner: std::ptr::from_ref::<Value>(v),
             })),
             None => std::ptr::null(),
         },

@@ -13,6 +13,7 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
+    #[must_use] 
     pub fn parse_or_panic(input: &str) -> Self {
         Self::parse(input).unwrap_or_else(|errors| {
             for e in &errors {
@@ -51,6 +52,7 @@ impl Document {
         Ok(doc)
     }
 
+    #[must_use] 
     pub fn root(&self) -> Option<Value> {
         let ptr = unsafe { ffi::spine_doc_root(self.ptr) };
         Value::from_ptr(ptr)

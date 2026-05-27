@@ -6,13 +6,14 @@ pub struct Value {
 }
 
 impl Value {
-    pub(crate) fn from_ptr(ptr: *const ffi::SpineValue) -> Option<Self> {
+    pub(crate) const fn from_ptr(ptr: *const ffi::SpineValue) -> Option<Self> {
         if ptr.is_null() {
             return None;
         }
         Some(Self { ptr })
     }
 
+    #[must_use] 
     pub fn value_type(&self) -> ValueType {
         match unsafe { ffi::spine_value_type(self.ptr) } {
             0 => ValueType::Null,
@@ -26,6 +27,7 @@ impl Value {
         }
     }
 
+    #[must_use] 
     pub fn as_bool(&self) -> Option<bool> {
         match self.value_type() {
             ValueType::Bool => Some(unsafe { ffi::spine_value_bool(self.ptr) }),
@@ -33,6 +35,7 @@ impl Value {
         }
     }
 
+    #[must_use] 
     pub fn as_f64(&self) -> Option<f64> {
         match self.value_type() {
             ValueType::Number => Some(unsafe { ffi::spine_value_number(self.ptr) }),
@@ -40,6 +43,7 @@ impl Value {
         }
     }
 
+    #[must_use] 
     pub fn as_str(&self) -> Option<String> {
         match self.value_type() {
             ValueType::String => {
@@ -59,6 +63,7 @@ impl Value {
         }
     }
 
+    #[must_use] 
     pub fn tag(&self) -> Option<(String, String)> {
         match self.value_type() {
             ValueType::Tagged => {
@@ -85,6 +90,7 @@ impl Value {
         }
     }
 
+    #[must_use] 
     pub fn len(&self) -> usize {
         match self.value_type() {
             ValueType::Array => unsafe { ffi::spine_array_len(self.ptr) as usize },
@@ -93,27 +99,30 @@ impl Value {
         }
     }
 
-    pub fn get_index(&self, index: usize) -> Option<Value> {
+    #[must_use] 
+    pub fn get_index(&self, index: usize) -> Option<Self> {
         match self.value_type() {
             ValueType::Array => {
                 let ptr = unsafe { ffi::spine_array_get(self.ptr, index as u64) };
-                Value::from_ptr(ptr)
+                Self::from_ptr(ptr)
             }
             _ => None,
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<Value> {
+    #[must_use] 
+    pub fn get(&self, key: &str) -> Option<Self> {
         match self.value_type() {
             ValueType::Object => {
                 let key = CString::new(key).ok()?;
                 let ptr = unsafe { ffi::spine_object_get(self.ptr, key.as_ptr()) };
-                Value::from_ptr(ptr)
+                Self::from_ptr(ptr)
             }
             _ => None,
         }
     }
 
+    #[must_use] 
     pub fn key_at(&self, index: usize) -> Option<String> {
         match self.value_type() {
             ValueType::Object => {
@@ -137,7 +146,7 @@ impl Value {
 impl Drop for Value {
     fn drop(&mut self) {
         unsafe {
-            ffi::spine_free_value(self.ptr as *mut ffi::SpineValue);
+            ffi::spine_free_value(self.ptr.cast_mut());
         }
     }
 }

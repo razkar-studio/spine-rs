@@ -13,17 +13,19 @@ pub struct Parser {
 }
 
 impl Parser {
+    #[must_use] 
     pub fn new(tokens: Vec<SpannedToken>, source_text: &str) -> Self {
         Self {
             tokens,
             pos: 0,
             errors: Vec::new(),
             source: None,
-            source_lines: source_text.lines().map(|l| l.to_string()).collect(),
+            source_lines: source_text.lines().map(std::string::ToString::to_string).collect(),
             key_spans: std::collections::HashMap::new(),
         }
     }
 
+    #[must_use] 
     pub fn with_source(mut self, source: &str) -> Self {
         self.source = Some(source.to_string());
         self
@@ -32,8 +34,7 @@ impl Parser {
     fn get_source_line(&self, line: usize) -> &str {
         self.source_lines
             .get(line.saturating_sub(1))
-            .map(|s| s.as_str())
-            .unwrap_or("")
+            .map_or("", std::string::String::as_str)
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -59,9 +60,7 @@ impl Parser {
     fn skip_comments_and_newlines(&mut self) {
         loop {
             match self.peek() {
-                Some(Token::Newline)
-                | Some(Token::LineComment(_))
-                | Some(Token::BlockComment(_)) => {
+                Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) => {
                     self.advance();
                 }
                 _ => break,
@@ -294,8 +293,8 @@ impl Parser {
         out += &color_fmt!("[dim]│[/]  {}\n", filename);
 
         for (line, col, source_line, token_len, note) in lines {
-            let line_str = format!("{:>width$}", line, width = max_line_width);
-            let col_str = format!("{}", col);
+            let line_str = format!("{line:>max_line_width$}");
+            let col_str = format!("{col}");
             let gutter_len = 3 + line_str.len() + 1 + col_str.len() + 1;
             let caret_pad = gutter_len + col;
             let carets = format!("{:>pad$}", "^".repeat(*token_len), pad = caret_pad);
@@ -345,7 +344,7 @@ impl Parser {
                     {
                         self.format_error(
                             "duplicate-key",
-                            &format!("'{}' was already defined", key),
+                            &format!("'{key}' was already defined"),
                             &[
                                 (
                                     first_line,
@@ -366,7 +365,7 @@ impl Parser {
                     } else {
                         self.format_error(
                             "duplicate-key",
-                            &format!("'{}' was already defined", key),
+                            &format!("'{key}' was already defined"),
                             &[(
                                 line,
                                 col,

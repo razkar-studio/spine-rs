@@ -9,6 +9,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    #[must_use] 
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -39,7 +40,7 @@ impl Lexer {
         c
     }
 
-    fn is_at_end(&self) -> bool {
+    const fn is_at_end(&self) -> bool {
         self.pos >= self.input.len()
     }
 
@@ -213,9 +214,9 @@ impl Lexer {
             }
         }
 
-        if self.peek() == Some('.') {
-            if let Some(&next) = self.input.get(self.pos + 1) {
-                if next.is_alphabetic() {
+        if self.peek() == Some('.')
+            && let Some(&next) = self.input.get(self.pos + 1)
+                && next.is_alphabetic() {
                     let mut lookahead = self.pos + 1;
                     while let Some(&c) = self.input.get(lookahead) {
                         if c.is_alphanumeric() || c == '_' || c == '-' {
@@ -235,7 +236,7 @@ impl Lexer {
                                 break;
                             }
                         }
-                        let full_tag = format!("{}.{}", s, tag_suffix);
+                        let full_tag = format!("{s}.{tag_suffix}");
                         self.advance();
                         let mut content = String::new();
                         while let Some(c) = self.peek() {
@@ -249,8 +250,6 @@ impl Lexer {
                         return Token::Tagged(full_tag, content);
                     }
                 }
-            }
-        }
 
         if self.peek() == Some('"') {
             self.advance();
@@ -329,7 +328,7 @@ impl Lexer {
                 '"' => tokens.push((self.lex_string(), line, col)),
                 c if c.is_ascii_digit() => tokens.push((self.lex_number(), line, col)),
                 c if c.is_alphabetic() || c == '_' => {
-                    tokens.push((self.lex_ident_or_keyword(), line, col))
+                    tokens.push((self.lex_ident_or_keyword(), line, col));
                 }
                 _ => {
                     self.advance();
@@ -346,7 +345,7 @@ fn strip_leading_pipes(line: &str, depth: usize) -> String {
     let mut stripped = 0;
     while stripped < depth {
         match chars.peek() {
-            Some(' ') | Some('\t') => {
+            Some(' ' | '\t') => {
                 chars.next();
             }
             Some('|') => {

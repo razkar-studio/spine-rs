@@ -1,16 +1,13 @@
 #[derive(Debug)]
+#[derive(Default)]
 pub enum Value {
+    #[default]
     Null,
     Bool(bool),
     Number(f64),
     String(String),
-    Array(Vec<Value>),
-    Object(Vec<(String, Value)>),
+    Array(Vec<Self>),
+    Object(Vec<(String, Self)>),
     Tagged(String, String),
 }
 
-impl Default for Value {
-    fn default() -> Self {
-        Value::Null
-    }
-}
