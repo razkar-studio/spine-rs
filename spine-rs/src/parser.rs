@@ -1,6 +1,7 @@
 use crate::{SpannedToken, Token, Value};
 
 use farben::prelude::*;
+use unicode_width::UnicodeWidthStr;
 
 pub struct Parser {
     tokens: Vec<SpannedToken>,
@@ -13,19 +14,22 @@ pub struct Parser {
 }
 
 impl Parser {
-    #[must_use] 
+    #[must_use]
     pub fn new(tokens: Vec<SpannedToken>, source_text: &str) -> Self {
         Self {
             tokens,
             pos: 0,
             errors: Vec::new(),
             source: None,
-            source_lines: source_text.lines().map(std::string::ToString::to_string).collect(),
+            source_lines: source_text
+                .lines()
+                .map(std::string::ToString::to_string)
+                .collect(),
             key_spans: std::collections::HashMap::new(),
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_source(mut self, source: &str) -> Self {
         self.source = Some(source.to_string());
         self
@@ -276,16 +280,9 @@ impl Parser {
         &self,
         kind: &str,
         message: &str,
-        // (line, col, source_line, token_len, note)
         lines: &[(usize, usize, &str, usize, Option<&str>)],
     ) -> String {
         let filename = self.source.as_deref().unwrap_or("<input>");
-
-        let max_line_width = lines
-            .iter()
-            .map(|(l, _, _, _, _)| l.to_string().len())
-            .max()
-            .unwrap_or(1);
 
         let mut out = String::new();
 
@@ -293,23 +290,26 @@ impl Parser {
         out += &color_fmt!("[dim]│[/]  {}\n", filename);
 
         for (line, col, source_line, token_len, note) in lines {
-            let line_str = format!("{line:>max_line_width$}");
-            let col_str = format!("{col}");
-            let gutter_len = 3 + line_str.len() + 1 + col_str.len() + 1;
-            let caret_pad = gutter_len + col;
-            let carets = format!("{:>pad$}", "^".repeat(*token_len), pad = caret_pad);
+            let gutter = format!("{line}:{col}");
 
-            out += &color_fmt!(
-                "[dim]├─[/] [cyan]{}:{}[/] {}\n",
-                line_str,
-                col_str,
-                source_line
-            );
+            out += &color_fmt!("[dim]├─[/] [cyan]{}[/] {}\n", gutter, source_line);
+
+            let start = col.saturating_sub(1);
+
+            let mut caret_line = String::new();
+
+            let gutter_width = UnicodeWidthStr::width(gutter.as_str());
+            caret_line.push_str(&" ".repeat(gutter_width + 1));
+
+            let prefix_chars = source_line.chars().take(start).count();
+            caret_line.push_str(&" ".repeat(prefix_chars));
+
+            caret_line.push_str(&"^".repeat(*token_len.max(&1)));
 
             if let Some(note_text) = note {
-                out += &color_fmt!("[dim]│[/]  [red]{}[/] [red]{}\n[/]", carets, note_text);
+                out += &color_fmt!("[dim]│[/]  [red]{} {}[/]\n", caret_line, note_text);
             } else {
-                out += &color_fmt!("[dim]│[/]  [red]{}\n[/]", carets);
+                out += &color_fmt!("[dim]│[/]  [red]{}[/]\n", caret_line);
             }
         }
 

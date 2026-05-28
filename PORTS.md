@@ -9,3 +9,25 @@ Supported, official, or officially acknowledged ports for the Spine data format.
 _(that's it currently...)_
 
 _(yes not even a C port even though the spine-c header exists, that's not an official port by my standards)_
+
+---
+
+# Contributing
+
+## Overview
+
+`spine-c` exposes the official C ABI for creating bindings to other languages.
+
+Bindings should target:
+- `include/spine.h`
+- the generated shared libraries
+
+## Supported library formats
+
+- Linux/BSD: `.so`
+- Windows: `.dll`
+- macOS: `.dylib`
+
+## CI artifacts
+
+Prebuilt libraries are available from GitHub Actions artifacts/releases.
