@@ -1,5 +1,4 @@
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum Value {
     #[default]
     Null,
@@ -10,4 +9,3 @@ pub enum Value {
     Object(Vec<(String, Self)>),
     Tagged(String, String),
 }
-

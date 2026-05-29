@@ -14,6 +14,7 @@ pub enum Token {
     LineComment(String),
     BlockComment(String),
     Tagged(String, String),
+    Unknown(char),
 }
 
 // (token, line, col)

@@ -206,17 +206,18 @@ impl Lexer {
         }
 
         if let Some(c) = self.peek()
-            && c.is_alphabetic() {
-                while let Some(c) = self.peek() {
-                    if c.is_alphanumeric() {
-                        s.push(c);
-                        self.advance();
-                    } else {
-                        break;
-                    }
+            && c.is_alphabetic()
+        {
+            while let Some(c) = self.peek() {
+                if c.is_alphanumeric() {
+                    s.push(c);
+                    self.advance();
+                } else {
+                    break;
                 }
-                return Token::Str(s);
             }
+            return Token::Str(s);
+        }
 
         Token::Number(s.parse().unwrap_or(0.0))
     }
@@ -365,7 +366,9 @@ impl Lexer {
                     tokens.push((self.lex_ident_or_keyword(), line, col));
                 }
                 _ => {
+                    let c = self.peek().unwrap();
                     self.advance();
+                    tokens.push((Token::Unknown(c), line, col));
                 }
             }
         }

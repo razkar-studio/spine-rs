@@ -287,7 +287,7 @@ impl Parser {
     fn parse_append(
         &mut self,
         fields: &mut Vec<(String, Value)>,
-        _spans: &mut Spans,
+        spans: &mut Spans,
         depth: usize,
         tilde_line: usize,
         tilde_col: usize,
@@ -314,18 +314,44 @@ impl Parser {
                     arr.push(entry);
                 } else {
                     let current_source = self.get_source_line(tilde_line).to_string();
-                    let token_len = name.len();
-                    let error = self.format_error(
-                        "type-conflict",
-                        &format!("'{name}' is not an array"),
-                        &[(
-                            tilde_line,
-                            tilde_col,
-                            &current_source,
-                            token_len + 1,
-                            Some("append attempted here"),
-                        )],
-                    );
+                    let tilde_len = name.len() + 1;
+
+                    let error = if let Some((first_line, first_col, first_source)) =
+                        spans.get(&name).cloned()
+                    {
+                        self.format_error(
+                            "type-conflict",
+                            &format!("'{name}' is not an array"),
+                            &[
+                                (
+                                    first_line,
+                                    first_col,
+                                    first_source.as_str(),
+                                    name.len(),
+                                    Some("first defined here as scalar"),
+                                ),
+                                (
+                                    tilde_line,
+                                    tilde_col,
+                                    &current_source,
+                                    tilde_len,
+                                    Some("append attempted here"),
+                                ),
+                            ],
+                        )
+                    } else {
+                        self.format_error(
+                            "type-conflict",
+                            &format!("'{name}' is not an array"),
+                            &[(
+                                tilde_line,
+                                tilde_col,
+                                &current_source,
+                                tilde_len,
+                                Some("append attempted here"),
+                            )],
+                        )
+                    };
                     self.errors.push(error);
                 }
             } else {
@@ -338,6 +364,20 @@ impl Parser {
     pub fn parse(&mut self) -> Result<Value, Vec<String>> {
         let mut fields: Vec<(String, Value)> = Vec::new();
         let mut spans = Spans::new();
+
+        if let Some((Token::Unknown(c), line, col)) = self
+            .tokens
+            .iter()
+            .find(|(t, _, _)| matches!(t, Token::Unknown(_)))
+        {
+            let source = self.get_source_line(*line).to_string();
+            let error = self.format_error(
+                "unexpected-character",
+                &format!("unexpected character '{c}', is this a Spine file?"),
+                &[(*line, *col, &source, 1, None)],
+            );
+            self.errors.push(error);
+        }
 
         self.skip_comments_and_newlines();
 

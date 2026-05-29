@@ -141,3 +141,33 @@ fn test_from_file() {
         panic!()
     }
 }
+
+#[test]
+fn test_json_input() {
+    let src = r#"{"key": "value", "number": 42, "nested": {"a": true}}"#;
+    let tokens = Lexer::new(src).tokenize();
+    println!("{tokens:?}");
+}
+
+#[test]
+fn test_unknown_characters() {
+    let src = r#"{"key": "value", "number": 42}"#;
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("unexpected-character"));
+}
+
+#[test]
+fn test_unknown_with_spine_errors() {
+    let src = "host = localhost\nhost = example.com\n{wat}";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 2);
+}
