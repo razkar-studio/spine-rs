@@ -6,10 +6,11 @@ pub struct Lexer {
     line_pipes: usize,
     line: usize,
     col: usize,
+    after_equals: bool,
 }
 
 impl Lexer {
-    #[must_use] 
+    #[must_use]
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -17,6 +18,7 @@ impl Lexer {
             line_pipes: 0,
             line: 1,
             col: 1,
+            after_equals: false,
         }
     }
 
@@ -79,6 +81,7 @@ impl Lexer {
                     }
                     content.push_str("*/");
                 }
+                #[allow(unused_assignments)]
                 (Some(c), _) => {
                     content.push(c);
                     self.advance();
@@ -90,6 +93,7 @@ impl Lexer {
     }
 
     fn lex_string(&mut self) -> Token {
+        self.after_equals = false;
         self.advance();
 
         if self.peek() == Some('"') {
@@ -200,6 +204,20 @@ impl Lexer {
                 break;
             }
         }
+
+        if let Some(c) = self.peek()
+            && c.is_alphabetic() {
+                while let Some(c) = self.peek() {
+                    if c.is_alphanumeric() {
+                        s.push(c);
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+                return Token::Str(s);
+            }
+
         Token::Number(s.parse().unwrap_or(0.0))
     }
 
@@ -213,43 +231,6 @@ impl Lexer {
                 break;
             }
         }
-
-        if self.peek() == Some('.')
-            && let Some(&next) = self.input.get(self.pos + 1)
-                && next.is_alphabetic() {
-                    let mut lookahead = self.pos + 1;
-                    while let Some(&c) = self.input.get(lookahead) {
-                        if c.is_alphanumeric() || c == '_' || c == '-' {
-                            lookahead += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    if self.input.get(lookahead) == Some(&'"') {
-                        self.advance();
-                        let mut tag_suffix = String::new();
-                        while let Some(c) = self.peek() {
-                            if c.is_alphanumeric() || c == '_' || c == '-' {
-                                tag_suffix.push(c);
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                        let full_tag = format!("{s}.{tag_suffix}");
-                        self.advance();
-                        let mut content = String::new();
-                        while let Some(c) = self.peek() {
-                            if c == '"' {
-                                self.advance();
-                                break;
-                            }
-                            content.push(c);
-                            self.advance();
-                        }
-                        return Token::Tagged(full_tag, content);
-                    }
-                }
 
         if self.peek() == Some('"') {
             self.advance();
@@ -265,6 +246,56 @@ impl Lexer {
             return Token::Tagged(s, content);
         }
 
+        if self.peek() == Some('.')
+            && let Some(&next) = self.input.get(self.pos + 1)
+            && next.is_alphabetic()
+        {
+            let mut lookahead = self.pos + 1;
+            while let Some(&c) = self.input.get(lookahead) {
+                if c.is_alphanumeric() || c == '_' || c == '-' {
+                    lookahead += 1;
+                } else {
+                    break;
+                }
+            }
+            if self.input.get(lookahead) == Some(&'"') {
+                self.advance();
+                let mut tag_suffix = String::new();
+                while let Some(c) = self.peek() {
+                    if c.is_alphanumeric() || c == '_' || c == '-' {
+                        tag_suffix.push(c);
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+                let full_tag = format!("{s}.{tag_suffix}");
+                self.advance();
+                let mut content = String::new();
+                while let Some(c) = self.peek() {
+                    if c == '"' {
+                        self.advance();
+                        break;
+                    }
+                    content.push(c);
+                    self.advance();
+                }
+                return Token::Tagged(full_tag, content);
+            }
+        }
+
+        if self.after_equals {
+            while let Some(c) = self.peek() {
+                if c == '\n' || c == '#' {
+                    break;
+                }
+                s.push(c);
+                self.advance();
+            }
+            self.after_equals = false;
+            return Token::Str(s.trim_end().to_string());
+        }
+
         match s.as_str() {
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
@@ -273,6 +304,7 @@ impl Lexer {
         }
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn tokenize(&mut self) -> Vec<SpannedToken> {
         let mut tokens = Vec::new();
 
@@ -285,6 +317,7 @@ impl Lexer {
                     continue;
                 }
                 '\n' => {
+                    self.after_equals = false;
                     tokens.push((Token::Newline, line, col));
                     self.advance();
                     self.line_pipes = 0;
@@ -308,6 +341,7 @@ impl Lexer {
                     self.advance();
                 }
                 '=' => {
+                    self.after_equals = true;
                     tokens.push((Token::Equals, line, col));
                     self.advance();
                 }

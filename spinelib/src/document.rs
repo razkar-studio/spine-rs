@@ -52,12 +52,23 @@ impl Document {
         })
     }
 
+    /// Loads a Spine document from a file path.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `DocError` if the file cannot be read or the content is invalid.
     pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, DocError> {
         let path = path.into();
         let contents = fs::read_to_string(path)?;
         Self::from_str(contents)
     }
 
+    /// Parses a Spine document from a string.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `DocError` if the string contains a null byte or the content is invalid.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(input: impl Into<String>) -> Result<Self, DocError> {
         let input = input.into();
         let c_input = CString::new(input).map_err(|_| vec!["invalid input string".to_string()])?;

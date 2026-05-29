@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf, str::FromStr};
+
 use crate::{Lexer, Parser, Value};
 
 #[test]
@@ -87,8 +89,8 @@ fn test_multiline_string() {
     if let Value::Object(fields) = value {
         if let Value::Object(inner) = &fields[0].1 {
             if let Value::String(s) = &inner[0].1 {
-                assert!(s.contains("SELECT *"), "got: {}", s);
-                assert!(s.contains("FROM users"), "got: {}", s);
+                assert!(s.contains("SELECT *"), "got: {s}");
+                assert!(s.contains("FROM users"), "got: {s}");
             } else {
                 panic!("expected string");
             }
@@ -125,4 +127,17 @@ fn test_duplicate_key_error() {
     let errors = result.unwrap_err();
     assert_eq!(errors.len(), 1);
     println!("{}", errors[0]);
+}
+
+#[test]
+fn test_from_file() {
+    let path = PathBuf::from_str("../example.spn").unwrap();
+    let src = fs::read_to_string(path).unwrap();
+    let tokens = Lexer::new(&src).tokenize();
+    let result = Parser::new(tokens, &src).parse();
+
+    if let Err(errors) = result {
+        println!("{}", errors.join("\n"));
+        panic!()
+    }
 }

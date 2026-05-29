@@ -22,12 +22,12 @@ mod tests {
         let port = server.get("port").expect("no port");
 
         assert_eq!(host.as_str().unwrap(), "localhost");
-        assert_eq!(port.as_f64().unwrap(), 8080.0);
+        assert!((port.as_f64().unwrap() - 8080.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_from_file() {
-        let path = PathBuf::from_str("../../example.spn");
+        let path = PathBuf::from_str("../example.spn");
         assert!(path.is_ok());
         let path = path.unwrap();
         let value = Document::from_path(path);

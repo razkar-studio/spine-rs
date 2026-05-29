@@ -3,14 +3,14 @@ use crate::{SpannedToken, Token, Value};
 use farben::prelude::*;
 use unicode_width::UnicodeWidthStr;
 
+type Spans = std::collections::HashMap<String, (usize, usize, String)>;
+
 pub struct Parser {
     tokens: Vec<SpannedToken>,
     pos: usize,
     pub errors: Vec<String>,
     source: Option<String>,
     source_lines: Vec<String>,
-    // (line, col, source_line)
-    key_spans: std::collections::HashMap<String, (usize, usize, String)>,
 }
 
 impl Parser {
@@ -25,7 +25,6 @@ impl Parser {
                 .lines()
                 .map(std::string::ToString::to_string)
                 .collect(),
-            key_spans: std::collections::HashMap::new(),
         }
     }
 
@@ -62,17 +61,12 @@ impl Parser {
     }
 
     fn skip_comments_and_newlines(&mut self) {
-        loop {
-            match self.peek() {
-                Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) => {
-                    self.advance();
-                }
-                _ => break,
-            }
+        while let Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) = self.peek() {
+            self.advance();
         }
     }
 
-    fn current_depth(&mut self) -> usize {
+    fn current_depth(&self) -> usize {
         let mut depth = 0;
         let mut lookahead = self.pos;
         while let Some((Token::Pipe, _, _)) = self.tokens.get(lookahead) {
@@ -88,7 +82,12 @@ impl Parser {
         }
     }
 
-    fn parse_statement(&mut self, fields: &mut Vec<(String, Value)>, depth: usize) {
+    fn parse_statement(
+        &mut self,
+        fields: &mut Vec<(String, Value)>,
+        spans: &mut Spans,
+        depth: usize,
+    ) {
         if self.current_depth() < depth {
             return;
         }
@@ -97,15 +96,7 @@ impl Parser {
         match self.peek().cloned() {
             Some(Token::Tilde) => {
                 self.advance();
-                self.parse_append(fields, depth);
-            }
-            Some(Token::Dash) => {
-                self.advance();
-            }
-            Some(Token::Ident(name)) => {
-                let (line, col) = self.peek_span().unwrap_or((0, 0));
-                self.advance();
-                self.parse_ident(name, fields, depth, line, col);
+                self.parse_append(fields, spans, depth);
             }
             _ => {
                 self.advance();
@@ -117,6 +108,7 @@ impl Parser {
         &mut self,
         name: String,
         fields: &mut Vec<(String, Value)>,
+        spans: &mut Spans,
         depth: usize,
         line: usize,
         col: usize,
@@ -127,15 +119,16 @@ impl Parser {
                 if let Some(Token::Ident(next)) = self.peek().cloned() {
                     self.advance();
                     let mut child_fields = Vec::new();
-                    self.parse_ident(next, &mut child_fields, depth, line, col);
-                    self.merge_into(fields, name, Value::Object(child_fields), line, col);
+                    let mut child_spans = Spans::new();
+                    self.parse_ident(next, &mut child_fields, &mut child_spans, depth, line, col);
+                    self.merge_into(fields, spans, name, Value::Object(child_fields), line, col);
                 }
             }
             Some(Token::Equals) => {
                 self.advance();
                 let value = self.parse_value();
                 self.skip_newlines();
-                self.merge_into(fields, name, value, line, col);
+                self.merge_into(fields, spans, name, value, line, col);
             }
             Some(Token::Newline) | None => {
                 self.skip_newlines();
@@ -150,16 +143,69 @@ impl Parser {
                             Some(Token::Dash) => {
                                 self.advance();
                                 self.skip_newlines();
+
                                 if self.current_depth() == depth + 2 {
                                     let mut child_fields = Vec::new();
+                                    let mut child_spans = Spans::new();
                                     while self.current_depth() == depth + 2 {
-                                        self.parse_statement(&mut child_fields, depth + 2);
+                                        self.parse_statement(
+                                            &mut child_fields,
+                                            &mut child_spans,
+                                            depth + 2,
+                                        );
                                         self.skip_comments_and_newlines();
                                     }
                                     entries.push(Value::Object(child_fields));
                                 } else {
                                     match self.peek().cloned() {
                                         Some(Token::Newline) | None => entries.push(Value::Null),
+                                        Some(Token::Ident(name)) => {
+                                            let (line, col) = self.peek_span().unwrap_or((0, 0));
+                                            self.advance();
+
+                                            // Check if it has an equals sign or dot, or children on the next line.
+                                            let has_children = match self.peek() {
+                                                Some(Token::Equals | Token::Dot) => true,
+                                                Some(Token::Newline) | None => {
+                                                    let mut lookahead = self.pos;
+                                                    while let Some((
+                                                        Token::Newline
+                                                        | Token::LineComment(_)
+                                                        | Token::BlockComment(_),
+                                                        _,
+                                                        _,
+                                                    )) = self.tokens.get(lookahead)
+                                                    {
+                                                        lookahead += 1;
+                                                    }
+                                                    let mut next_depth = 0;
+                                                    while let Some((Token::Pipe, _, _)) =
+                                                        self.tokens.get(lookahead)
+                                                    {
+                                                        next_depth += 1;
+                                                        lookahead += 1;
+                                                    }
+                                                    next_depth == depth + 2
+                                                }
+                                                _ => false,
+                                            };
+
+                                            if has_children {
+                                                let mut temp_fields = Vec::new();
+                                                let mut temp_spans = Spans::new();
+                                                self.parse_ident(
+                                                    name,
+                                                    &mut temp_fields,
+                                                    &mut temp_spans,
+                                                    depth + 1,
+                                                    line,
+                                                    col,
+                                                );
+                                                entries.push(Value::Object(temp_fields));
+                                            } else {
+                                                entries.push(Value::String(name));
+                                            }
+                                        }
                                         _ => {
                                             let v = self.parse_value();
                                             entries.push(v);
@@ -167,18 +213,24 @@ impl Parser {
                                     }
                                 }
                             }
+                            Some(Token::Newline) => {
+                                self.advance();
+                                self.skip_comments_and_newlines();
+                                continue;
+                            }
                             _ => break,
                         }
                         self.skip_comments_and_newlines();
                     }
-                    self.merge_into(fields, name, Value::Array(entries), line, col);
+                    self.merge_into(fields, spans, name, Value::Array(entries), line, col);
                 } else {
                     let mut child_fields = Vec::new();
+                    let mut child_spans = Spans::new();
                     while self.current_depth() == depth + 1 {
-                        self.parse_statement(&mut child_fields, depth + 1);
+                        self.parse_statement(&mut child_fields, &mut child_spans, depth + 1);
                         self.skip_comments_and_newlines();
                     }
-                    self.merge_into(fields, name, Value::Object(child_fields), line, col);
+                    self.merge_into(fields, spans, name, Value::Object(child_fields), line, col);
                 }
             }
             _ => {}
@@ -200,7 +252,7 @@ impl Parser {
 
     fn parse_value(&mut self) -> Value {
         match self.peek().cloned() {
-            Some(Token::Str(s)) => {
+            Some(Token::Str(s) | Token::Ident(s)) => {
                 self.advance();
                 Value::String(s)
             }
@@ -228,14 +280,20 @@ impl Parser {
         }
     }
 
-    fn parse_append(&mut self, fields: &mut Vec<(String, Value)>, depth: usize) {
+    fn parse_append(
+        &mut self,
+        fields: &mut Vec<(String, Value)>,
+        _spans: &mut Spans,
+        depth: usize,
+    ) {
         if let Some(Token::Ident(name)) = self.peek().cloned() {
             self.advance();
             self.skip_newlines();
 
             let mut child_fields = Vec::new();
+            let mut child_spans = Spans::new();
             while self.current_depth() == depth + 1 {
-                self.parse_statement(&mut child_fields, depth + 1);
+                self.parse_statement(&mut child_fields, &mut child_spans, depth + 1);
                 self.skip_comments_and_newlines();
             }
 
@@ -249,7 +307,12 @@ impl Parser {
                 if let Value::Array(ref mut arr) = existing.1 {
                     arr.push(entry);
                 } else {
-                    panic!("conflict: '{name}' is not an array");
+                    let error = self.format_error(
+                        "type-conflict",
+                        &format!("'{name}' is not an array"),
+                        &[],
+                    );
+                    self.errors.push(error);
                 }
             } else {
                 fields.push((name, Value::Array(vec![entry])));
@@ -257,13 +320,15 @@ impl Parser {
         }
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn parse(&mut self) -> Result<Value, Vec<String>> {
         let mut fields: Vec<(String, Value)> = Vec::new();
+        let mut spans = Spans::new();
 
         self.skip_comments_and_newlines();
 
         while self.peek().is_some() {
-            self.parse_statement(&mut fields, 0);
+            self.parse_statement(&mut fields, &mut spans, 0);
             self.skip_comments_and_newlines();
         }
 
@@ -321,6 +386,7 @@ impl Parser {
     fn merge_into(
         &mut self,
         fields: &mut Vec<(String, Value)>,
+        spans: &mut Spans,
         key: String,
         value: Value,
         line: usize,
@@ -330,7 +396,8 @@ impl Parser {
             match (std::mem::take(&mut existing.1), value) {
                 (Value::Object(mut a), Value::Object(b)) => {
                     for (k, v) in b {
-                        self.merge_into(&mut a, k, v, line, col);
+                        let mut merge_spans = Spans::new();
+                        self.merge_into(&mut a, &mut merge_spans, k, v, line, col);
                     }
                     existing.1 = Value::Object(a);
                 }
@@ -340,7 +407,7 @@ impl Parser {
                     let token_len = key.len();
 
                     let error = if let Some((first_line, first_col, first_source)) =
-                        self.key_spans.get(&key).cloned()
+                        spans.get(&key).cloned()
                     {
                         self.format_error(
                             "duplicate-key",
@@ -380,7 +447,7 @@ impl Parser {
             }
         } else {
             let source_line = self.get_source_line(line).to_string();
-            self.key_spans.insert(key.clone(), (line, col, source_line));
+            spans.insert(key.clone(), (line, col, source_line));
             fields.push((key, value));
         }
     }

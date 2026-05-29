@@ -16,7 +16,6 @@ impl Value {
     #[must_use] 
     pub fn value_type(&self) -> ValueType {
         match unsafe { ffi::spine_value_type(self.ptr) } {
-            0 => ValueType::Null,
             1 => ValueType::Bool,
             2 => ValueType::Number,
             3 => ValueType::String,
@@ -91,10 +90,15 @@ impl Value {
     }
 
     #[must_use] 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[must_use] 
     pub fn len(&self) -> usize {
         match self.value_type() {
-            ValueType::Array => unsafe { ffi::spine_array_len(self.ptr) as usize },
-            ValueType::Object => unsafe { ffi::spine_object_len(self.ptr) as usize },
+            ValueType::Array => usize::try_from(unsafe { ffi::spine_array_len(self.ptr) }).unwrap_or(0),
+            ValueType::Object => usize::try_from(unsafe { ffi::spine_object_len(self.ptr) }).unwrap_or(0),
             _ => 0,
         }
     }
