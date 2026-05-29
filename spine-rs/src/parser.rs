@@ -129,14 +129,22 @@ impl Parser {
                     let mut child_fields = Vec::new();
                     let mut child_spans = Spans::new();
                     self.parse_ident(next, &mut child_fields, &mut child_spans, depth, line, col);
-                    self.merge_into(fields, spans, name, Value::Object(child_fields), line, col);
+                    self.merge_into(
+                        fields,
+                        spans,
+                        name,
+                        Value::Object(child_fields),
+                        line,
+                        col,
+                        depth,
+                    );
                 }
             }
             Some(Token::Equals) => {
                 self.advance();
                 let value = self.parse_value();
                 self.skip_newlines();
-                self.merge_into(fields, spans, name, value, line, col);
+                self.merge_into(fields, spans, name, value, line, col, depth);
             }
             Some(Token::Newline) | None => {
                 self.skip_newlines();
@@ -171,7 +179,6 @@ impl Parser {
                                             let (line, col) = self.peek_span().unwrap_or((0, 0));
                                             self.advance();
 
-                                            // Check if it has an equals sign or dot, or children on the next line.
                                             let has_children = match self.peek() {
                                                 Some(Token::Equals | Token::Dot) => true,
                                                 Some(Token::Newline) | None => {
@@ -230,7 +237,7 @@ impl Parser {
                         }
                         self.skip_comments_and_newlines();
                     }
-                    self.merge_into(fields, spans, name, Value::Array(entries), line, col);
+                    self.merge_into(fields, spans, name, Value::Array(entries), line, col, depth);
                 } else {
                     let mut child_fields = Vec::new();
                     let mut child_spans = Spans::new();
@@ -238,7 +245,15 @@ impl Parser {
                         self.parse_statement(&mut child_fields, &mut child_spans, depth + 1);
                         self.skip_comments_and_newlines();
                     }
-                    self.merge_into(fields, spans, name, Value::Object(child_fields), line, col);
+                    self.merge_into(
+                        fields,
+                        spans,
+                        name,
+                        Value::Object(child_fields),
+                        line,
+                        col,
+                        depth,
+                    );
                 }
             }
             _ => {}
@@ -331,7 +346,7 @@ impl Parser {
         let mut current_fields = fields;
         let mut current_spans: &mut Spans = spans;
         for segment in prefix {
-            if current_fields.iter().find(|(k, _)| k == segment).is_none() {
+            if !current_fields.iter().any(|(k, _)| k == segment) {
                 current_fields.push((segment.clone(), Value::Object(Vec::new())));
             }
             let existing = current_fields
@@ -343,7 +358,8 @@ impl Parser {
                 current_spans = &mut temp_spans;
             } else {
                 let current_source = self.get_source_line(tilde_line).to_string();
-                let tilde_len: usize = path.iter().map(|s| s.len()).sum::<usize>() + path.len();
+                let tilde_len: usize =
+                    path.iter().map(std::string::String::len).sum::<usize>() + path.len();
                 let error = self.format_error(
                     "type-conflict",
                     &format!("'{segment}' is not an object"),
@@ -365,7 +381,8 @@ impl Parser {
                 arr.push(entry);
             } else {
                 let current_source = self.get_source_line(tilde_line).to_string();
-                let tilde_len: usize = path.iter().map(|s| s.len()).sum::<usize>() + path.len();
+                let tilde_len: usize =
+                    path.iter().map(std::string::String::len).sum::<usize>() + path.len();
                 let error = if let Some((first_line, first_col, first_source)) =
                     current_spans.get(last).cloned()
                 {
@@ -425,6 +442,16 @@ impl Parser {
                 &format!("unexpected character '{c}', is this a Spine file?"),
                 &[(*line, *col, &source, 1, None)],
             );
+            self.errors.push(error);
+        }
+
+        if let Some((Token::Error(msg), line, col)) = self
+            .tokens
+            .iter()
+            .find(|(t, _, _)| matches!(t, Token::Error(_)))
+        {
+            let source = self.get_source_line(*line).to_string();
+            let error = self.format_error("lexer-error", msg, &[(*line, *col, &source, 1, None)]);
             self.errors.push(error);
         }
 
@@ -490,13 +517,29 @@ impl Parser {
         value: Value,
         line: usize,
         col: usize,
+        debug_depth: usize, // temporary
     ) {
         if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &key) {
+            eprintln!(
+                "DEBUG: duplicate-key for key '{}', existing keys in this spans map: {:?}",
+                key,
+                spans.keys().collect::<Vec<_>>()
+            );
+            eprintln!(
+                "DEBUG: spans ptr={:p}, keys={:?}",
+                spans as *const _,
+                spans.keys().collect::<Vec<_>>()
+            );
+            eprintln!(
+                "DEBUG: depth={debug_depth} key='{key}' spans_ptr={:p}",
+                spans as *const _
+            );
+            eprintln!("{}", std::backtrace::Backtrace::capture());
             match (std::mem::take(&mut existing.1), value) {
                 (Value::Object(mut a), Value::Object(b)) => {
                     for (k, v) in b {
                         let mut merge_spans = Spans::new();
-                        self.merge_into(&mut a, &mut merge_spans, k, v, line, col);
+                        self.merge_into(&mut a, &mut merge_spans, k, v, line, col, debug_depth + 1);
                     }
                     existing.1 = Value::Object(a);
                 }

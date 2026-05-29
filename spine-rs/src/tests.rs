@@ -263,3 +263,50 @@ fn test_dotted_append() {
         panic!("expected object");
     }
 }
+
+#[test]
+fn test_unterminated_string() {
+    let src = "key = \"hello world\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("unterminated string"));
+}
+
+#[test]
+fn test_unterminated_multiline_string() {
+    let src = "key = \"\"\"\n| hello\n| world\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("unterminated multiline string"));
+}
+
+#[test]
+fn test_unterminated_block_comment() {
+    let src = "key = value\n/* this comment never ends\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("unterminated block comment"));
+}
+
+#[test]
+fn test_unterminated_string_with_spine_errors() {
+    let src = "host = localhost\nhost = example.com\nkey = \"oops\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    println!("{}", errors.join(""));
+    assert_eq!(errors.len(), 2);
+}

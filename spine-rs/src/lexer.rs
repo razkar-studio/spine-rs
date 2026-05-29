@@ -60,6 +60,8 @@ impl Lexer {
     }
 
     fn skip_block_comment(&mut self) -> Token {
+        let start_line = self.line;
+        let start_col = self.col;
         self.advance();
         self.advance();
         let mut content = String::new();
@@ -77,7 +79,7 @@ impl Lexer {
                     self.advance();
                     self.advance();
                     if depth == 0 {
-                        break;
+                        return Token::BlockComment(content.trim().to_string());
                     }
                     content.push_str("*/");
                 }
@@ -89,11 +91,15 @@ impl Lexer {
                 _ => break,
             }
         }
-        Token::BlockComment(content.trim().to_string())
+        Token::Error(format!(
+            "{start_line}:{start_col} unterminated block comment"
+        ))
     }
 
     fn lex_string(&mut self) -> Token {
         self.after_value_start = false;
+        let start_line = self.line;
+        let start_col = self.col;
         self.advance();
 
         if self.peek() == Some('"') {
@@ -110,7 +116,10 @@ impl Lexer {
             match c {
                 '"' => {
                     self.advance();
-                    break;
+                    return Token::Str(s);
+                }
+                '\n' => {
+                    return Token::Error(format!("{start_line}:{start_col} unterminated string"));
                 }
                 '\\' => {
                     self.advance();
@@ -128,11 +137,13 @@ impl Lexer {
                 }
             }
         }
-        Token::Str(s)
+        Token::Error(format!("{start_line}:{start_col} unterminated string"))
     }
 
     fn lex_multiline_string(&mut self) -> Token {
         let depth = self.line_pipes;
+        let start_line = self.line;
+        let start_col = self.col;
 
         while let Some(c) = self.peek() {
             if c == '\n' {
@@ -146,7 +157,9 @@ impl Lexer {
 
         loop {
             if self.is_at_end() {
-                break;
+                return Token::Error(format!(
+                    "{start_line}:{start_col} unterminated multiline string"
+                ));
             }
 
             let saved = self.pos;
@@ -372,7 +385,13 @@ impl Lexer {
                     self.advance();
                 }
                 '#' => tokens.push((self.skip_line_comment(), line, col)),
-                '/' => tokens.push((self.skip_block_comment(), line, col)),
+                '/' => {
+                    if self.input.get(self.pos + 1).copied() == Some('*') {
+                        tokens.push((self.skip_block_comment(), line, col));
+                    } else {
+                        tokens.push((self.lex_ident_or_keyword(), line, col));
+                    }
+                }
                 '"' => tokens.push((self.lex_string(), line, col)),
                 c if c.is_ascii_digit() => tokens.push((self.lex_number(), line, col)),
                 c if c.is_alphabetic() || c == '_' => {
