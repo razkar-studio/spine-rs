@@ -241,3 +241,25 @@ fn test_from_file() {
         panic!();
     }
 }
+
+#[test]
+fn test_dotted_append() {
+    let src =
+        "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";
+    let tokens = Lexer::new(src).tokenize();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
+    println!("{value:?}");
+    if let Value::Object(fields) = value {
+        if let Value::Object(server) = &fields[0].1 {
+            if let Value::Array(users) = &server.iter().find(|(k, _)| k == "users").unwrap().1 {
+                assert_eq!(users.len(), 2);
+            } else {
+                panic!("expected users array");
+            }
+        } else {
+            panic!("expected server object");
+        }
+    } else {
+        panic!("expected object");
+    }
+}

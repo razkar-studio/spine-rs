@@ -59,3 +59,18 @@ fn test_ffi_from_file() {
     assert!(value.is_ok());
     println!("{:?}", value.unwrap());
 }
+
+#[test]
+fn test_ffi_dotted_append() {
+    let src =
+        "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";
+    let doc = Document::from_str_or_panic(src);
+    let root = doc.root().expect("no root");
+    let server = root.get("server").expect("no server");
+    let users = server.get("users").expect("no users array");
+    assert_eq!(users.len(), 2);
+    let alice = users.get_index(0).expect("no alice");
+    let bob = users.get_index(1).expect("no bob");
+    assert_eq!(alice.get("name").unwrap().as_str().unwrap(), "alice");
+    assert_eq!(bob.get("name").unwrap().as_str().unwrap(), "bob");
+}

@@ -292,71 +292,120 @@ impl Parser {
         tilde_line: usize,
         tilde_col: usize,
     ) {
+        let mut path = Vec::new();
         if let Some(Token::Ident(name)) = self.peek().cloned() {
             self.advance();
-            self.skip_newlines();
-
-            let mut child_fields = Vec::new();
-            let mut child_spans = Spans::new();
-            while self.current_depth() == depth + 1 {
-                self.parse_statement(&mut child_fields, &mut child_spans, depth + 1);
-                self.skip_comments_and_newlines();
-            }
-
-            let entry = if child_fields.is_empty() {
-                Value::Null
-            } else {
-                Value::Object(child_fields)
-            };
-
-            if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &name) {
-                if let Value::Array(ref mut arr) = existing.1 {
-                    arr.push(entry);
+            path.push(name);
+            while self.peek() == Some(&Token::Dot) {
+                self.advance();
+                if let Some(Token::Ident(next)) = self.peek().cloned() {
+                    self.advance();
+                    path.push(next);
                 } else {
-                    let current_source = self.get_source_line(tilde_line).to_string();
-                    let tilde_len = name.len() + 1;
+                    break;
+                }
+            }
+        } else {
+            return;
+        }
 
-                    let error = if let Some((first_line, first_col, first_source)) =
-                        spans.get(&name).cloned()
-                    {
-                        self.format_error(
-                            "type-conflict",
-                            &format!("'{name}' is not an array"),
-                            &[
-                                (
-                                    first_line,
-                                    first_col,
-                                    first_source.as_str(),
-                                    name.len(),
-                                    Some("first defined here as scalar"),
-                                ),
-                                (
-                                    tilde_line,
-                                    tilde_col,
-                                    &current_source,
-                                    tilde_len,
-                                    Some("append attempted here"),
-                                ),
-                            ],
-                        )
-                    } else {
-                        self.format_error(
-                            "type-conflict",
-                            &format!("'{name}' is not an array"),
-                            &[(
+        self.skip_newlines();
+
+        let mut child_fields = Vec::new();
+        let mut child_spans = Spans::new();
+        while self.current_depth() == depth + 1 {
+            self.parse_statement(&mut child_fields, &mut child_spans, depth + 1);
+            self.skip_comments_and_newlines();
+        }
+
+        let entry = if child_fields.is_empty() {
+            Value::Null
+        } else {
+            Value::Object(child_fields)
+        };
+
+        let (prefix, last) = path.split_at(path.len() - 1);
+        let last = &last[0];
+
+        let mut temp_spans = Spans::new();
+        let mut current_fields = fields;
+        let mut current_spans: &mut Spans = spans;
+        for segment in prefix {
+            if current_fields.iter().find(|(k, _)| k == segment).is_none() {
+                current_fields.push((segment.clone(), Value::Object(Vec::new())));
+            }
+            let existing = current_fields
+                .iter_mut()
+                .find(|(k, _)| k == segment)
+                .unwrap();
+            if let Value::Object(ref mut inner) = existing.1 {
+                current_fields = inner;
+                current_spans = &mut temp_spans;
+            } else {
+                let current_source = self.get_source_line(tilde_line).to_string();
+                let tilde_len: usize = path.iter().map(|s| s.len()).sum::<usize>() + path.len();
+                let error = self.format_error(
+                    "type-conflict",
+                    &format!("'{segment}' is not an object"),
+                    &[(
+                        tilde_line,
+                        tilde_col,
+                        &current_source,
+                        tilde_len,
+                        Some("append attempted here"),
+                    )],
+                );
+                self.errors.push(error);
+                return;
+            }
+        }
+
+        if let Some(existing) = current_fields.iter_mut().find(|(k, _)| k == last) {
+            if let Value::Array(ref mut arr) = existing.1 {
+                arr.push(entry);
+            } else {
+                let current_source = self.get_source_line(tilde_line).to_string();
+                let tilde_len: usize = path.iter().map(|s| s.len()).sum::<usize>() + path.len();
+                let error = if let Some((first_line, first_col, first_source)) =
+                    current_spans.get(last).cloned()
+                {
+                    self.format_error(
+                        "type-conflict",
+                        &format!("'{last}' is not an array"),
+                        &[
+                            (
+                                first_line,
+                                first_col,
+                                first_source.as_str(),
+                                last.len(),
+                                Some("first defined here as scalar"),
+                            ),
+                            (
                                 tilde_line,
                                 tilde_col,
                                 &current_source,
                                 tilde_len,
                                 Some("append attempted here"),
-                            )],
-                        )
-                    };
-                    self.errors.push(error);
-                }
-            } else {
-                fields.push((name, Value::Array(vec![entry])));
+                            ),
+                        ],
+                    )
+                } else {
+                    self.format_error(
+                        "type-conflict",
+                        &format!("'{last}' is not an array"),
+                        &[(
+                            tilde_line,
+                            tilde_col,
+                            &current_source,
+                            tilde_len,
+                            Some("append attempted here"),
+                        )],
+                    )
+                };
+                self.errors.push(error);
             }
+        } else {
+            current_fields.push((last.clone(), Value::Array(vec![entry])));
         }
     }
 
