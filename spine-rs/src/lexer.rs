@@ -6,7 +6,7 @@ pub struct Lexer {
     line_pipes: usize,
     line: usize,
     col: usize,
-    after_equals: bool,
+    after_value_start: bool,
 }
 
 impl Lexer {
@@ -18,7 +18,7 @@ impl Lexer {
             line_pipes: 0,
             line: 1,
             col: 1,
-            after_equals: false,
+            after_value_start: false,
         }
     }
 
@@ -93,7 +93,7 @@ impl Lexer {
     }
 
     fn lex_string(&mut self) -> Token {
-        self.after_equals = false;
+        self.after_value_start = false;
         self.advance();
 
         if self.peek() == Some('"') {
@@ -205,6 +205,18 @@ impl Lexer {
             }
         }
 
+        if self.after_value_start {
+            while let Some(c) = self.peek() {
+                if c == '\n' || c == '#' {
+                    break;
+                }
+                s.push(c);
+                self.advance();
+            }
+            self.after_value_start = false;
+            return Token::Str(s.trim_end().to_string());
+        }
+
         if let Some(c) = self.peek()
             && c.is_alphabetic()
         {
@@ -285,7 +297,7 @@ impl Lexer {
             }
         }
 
-        if self.after_equals {
+        if self.after_value_start {
             while let Some(c) = self.peek() {
                 if c == '\n' || c == '#' {
                     break;
@@ -293,7 +305,7 @@ impl Lexer {
                 s.push(c);
                 self.advance();
             }
-            self.after_equals = false;
+            self.after_value_start = false;
             return Token::Str(s.trim_end().to_string());
         }
 
@@ -318,7 +330,7 @@ impl Lexer {
                     continue;
                 }
                 '\n' => {
-                    self.after_equals = false;
+                    self.after_value_start = false;
                     tokens.push((Token::Newline, line, col));
                     self.advance();
                     self.line_pipes = 0;
@@ -342,7 +354,7 @@ impl Lexer {
                     self.advance();
                 }
                 '=' => {
-                    self.after_equals = true;
+                    self.after_value_start = true;
                     tokens.push((Token::Equals, line, col));
                     self.advance();
                 }
@@ -353,6 +365,7 @@ impl Lexer {
                 '-' => {
                     tokens.push((Token::Dash, line, col));
                     self.advance();
+                    self.after_value_start = true;
                 }
                 '.' => {
                     tokens.push((Token::Dot, line, col));

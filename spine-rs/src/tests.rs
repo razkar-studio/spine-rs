@@ -171,3 +171,57 @@ fn test_unknown_with_spine_errors() {
     println!("{}", errors.join(""));
     assert_eq!(errors.len(), 2);
 }
+
+#[test]
+fn test_bare_strings() {
+    let src = "database\n| host = db.primary.local\n| endpoint = https://telemetry.local\n| password = scram-sha-256\n| window = 60s\n| timestamp = 2026-05-26T00:00:00Z\n";
+    let tokens = Lexer::new(src).tokenize();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
+    println!("{value:?}");
+
+    if let Value::Object(fields) = value {
+        if let Value::Object(inner) = &fields[0].1 {
+            for (k, v) in inner {
+                println!("{k} = {v:?}");
+            }
+            assert_eq!(inner[0].1, Value::String("db.primary.local".to_string()));
+            assert_eq!(
+                inner[1].1,
+                Value::String("https://telemetry.local".to_string())
+            );
+            assert_eq!(inner[2].1, Value::String("scram-sha-256".to_string()));
+            assert_eq!(inner[3].1, Value::String("60s".to_string()));
+            assert_eq!(
+                inner[4].1,
+                Value::String("2026-05-26T00:00:00Z".to_string())
+            );
+        } else {
+            panic!("expected inner object");
+        }
+    } else {
+        panic!("expected object");
+    }
+}
+
+#[test]
+fn test_bare_strings_in_array() {
+    let src = "regions\n| - eu-central-1\n| - eu-west-1\n| - us-east-1\n";
+    let tokens = Lexer::new(src).tokenize();
+    let value = Parser::new(tokens, src).parse().expect("parse failed");
+    println!("{value:?}");
+
+    if let Value::Object(fields) = value {
+        if let Value::Array(arr) = &fields[0].1 {
+            for (i, v) in arr.iter().enumerate() {
+                println!("[{i}] = {v:?}");
+            }
+            assert_eq!(arr[0], Value::String("eu-central-1".to_string()));
+            assert_eq!(arr[1], Value::String("eu-west-1".to_string()));
+            assert_eq!(arr[2], Value::String("us-east-1".to_string()));
+        } else {
+            panic!("expected array");
+        }
+    } else {
+        panic!("expected object");
+    }
+}

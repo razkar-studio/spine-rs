@@ -22,13 +22,13 @@ system
 | | sinks
 | | | - stdout
 | | | - file
-| | | | path = "/var/log/spine.log"
+| | | | path = /var/log/spine.log
 | | | | rotation = daily
 |
 | telemetry
 | | enabled = true
 | | exporter = otel
-| | endpoint = "https://telemetry.local"
+| | endpoint = https://telemetry.local
 |
 | tracing
 | | enabled = true
@@ -40,24 +40,24 @@ system
 database
 | primary
 | | driver = postgres
-| | host = "db.primary.local"
+| | host = db.primary.local
 | | port = 5432
 | | credentials
 | | | user = admin
-| | | password = "secret"
+| | | password = secret
 | | | auth
 | | | | method = scram-sha-256
 |
 | replicas
 | | -
-| | | host = "db.replica-1.local"
+| | | host = db.replica-1.local
 | | | lag = low
 | | | regions
 | | | | - eu-central-1
 | | | | - eu-west-1
 | |
 | | -
-| | | host = "db.replica-2.local"
+| | | host = db.replica-2.local
 | | | lag = medium
 
 features
@@ -72,7 +72,7 @@ features
 | caching
 | | enabled = true
 | | strategy = lru
-| | ttl = "300s"
+| | ttl = 300s
 |
 | analytics
 | | enabled = true
@@ -100,7 +100,7 @@ deploy
 | rollback
 | | enabled = true
 | | threshold = 2
-| | window = "60s"
+| | window = 60s
 
 plugins
 | -
@@ -132,12 +132,12 @@ meta
 |
 | ~events
 | | type = created
-| | timestamp = "2026-05-26T00:00:00Z"
+| | timestamp = 2026-05-26T00:00:00Z
 |
 | ~events
 | | type = updated
-| | timestamp = "2026-05-26T12:00:00Z"
+| | timestamp = 2026-05-26T12:00:00Z
 |
 | ~events
 | | type = deployed
-| | timestamp = "2026-05-26T18:00:00Z"
+| | timestamp = 2026-05-26T18:00:00Z
