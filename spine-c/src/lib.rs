@@ -103,7 +103,7 @@ pub unsafe extern "C" fn spine_get_errors(doc: *const SpineDoc) -> *mut c_char {
     if doc.is_null() {
         return std::ptr::null_mut();
     }
-    let errors = unsafe { (*doc).errors.join("\n") };
+    let errors = unsafe { (*doc).errors.join("") };
     CString::new(errors).map_or(std::ptr::null_mut(), CString::into_raw)
 }
 
@@ -115,9 +115,13 @@ pub unsafe extern "C" fn spine_doc_root(doc: *const SpineDoc) -> *const SpineVal
     if doc.is_null() {
         return std::ptr::null();
     }
-    unsafe { &(*doc).root }.as_ref().map_or(std::ptr::null(), |value| Box::into_raw(Box::new(SpineValue {
-        inner: std::ptr::from_ref::<Value>(value),
-    })))
+    unsafe { &(*doc).root }
+        .as_ref()
+        .map_or(std::ptr::null(), |value| {
+            Box::into_raw(Box::new(SpineValue {
+                inner: std::ptr::from_ref::<Value>(value),
+            }))
+        })
 }
 
 /// # Safety
@@ -176,7 +180,9 @@ pub unsafe extern "C" fn spine_value_string(val: *const SpineValue) -> *mut c_ch
         return std::ptr::null_mut();
     }
     match unsafe { &*(*val).inner } {
-        Value::String(s) => CString::new(s.as_str()).map_or(std::ptr::null_mut(), CString::into_raw),
+        Value::String(s) => {
+            CString::new(s.as_str()).map_or(std::ptr::null_mut(), CString::into_raw)
+        }
         _ => std::ptr::null_mut(),
     }
 }
@@ -190,7 +196,9 @@ pub unsafe extern "C" fn spine_value_tag(val: *const SpineValue) -> *mut c_char 
         return std::ptr::null_mut();
     }
     match unsafe { &*(*val).inner } {
-        Value::Tagged(tag, _) => CString::new(tag.as_str()).map_or(std::ptr::null_mut(), CString::into_raw),
+        Value::Tagged(tag, _) => {
+            CString::new(tag.as_str()).map_or(std::ptr::null_mut(), CString::into_raw)
+        }
         _ => std::ptr::null_mut(),
     }
 }
@@ -204,7 +212,9 @@ pub unsafe extern "C" fn spine_value_tag_content(val: *const SpineValue) -> *mut
         return std::ptr::null_mut();
     }
     match unsafe { &*(*val).inner } {
-        Value::Tagged(_, content) => CString::new(content.as_str()).map_or(std::ptr::null_mut(), CString::into_raw),
+        Value::Tagged(_, content) => {
+            CString::new(content.as_str()).map_or(std::ptr::null_mut(), CString::into_raw)
+        }
         _ => std::ptr::null_mut(),
     }
 }
@@ -227,14 +237,21 @@ pub const unsafe extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulon
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn spine_array_get(val: *const SpineValue, index: c_ulong) -> *const SpineValue {
+pub unsafe extern "C" fn spine_array_get(
+    val: *const SpineValue,
+    index: c_ulong,
+) -> *const SpineValue {
     if val.is_null() {
         return std::ptr::null();
     }
     match unsafe { &*(*val).inner } {
-        Value::Array(arr) => arr.get(usize::try_from(index).unwrap_or(usize::MAX)).map_or(std::ptr::null(), |v| Box::into_raw(Box::new(SpineValue {
-            inner: std::ptr::from_ref::<Value>(v),
-        }))),
+        Value::Array(arr) => arr
+            .get(usize::try_from(index).unwrap_or(usize::MAX))
+            .map_or(std::ptr::null(), |v| {
+                Box::into_raw(Box::new(SpineValue {
+                    inner: std::ptr::from_ref::<Value>(v),
+                }))
+            }),
         _ => std::ptr::null(),
     }
 }
@@ -262,7 +279,10 @@ pub unsafe extern "C" fn spine_object_key(val: *const SpineValue, index: c_ulong
         return std::ptr::null_mut();
     }
     match unsafe { &*(*val).inner } {
-        Value::Object(fields) => fields.get(usize::try_from(index).unwrap_or(usize::MAX)).and_then(|(k, _)| CString::new(k.as_str()).ok()).map_or(std::ptr::null_mut(), CString::into_raw),
+        Value::Object(fields) => fields
+            .get(usize::try_from(index).unwrap_or(usize::MAX))
+            .and_then(|(k, _)| CString::new(k.as_str()).ok())
+            .map_or(std::ptr::null_mut(), CString::into_raw),
         _ => std::ptr::null_mut(),
     }
 }

@@ -97,8 +97,9 @@ impl Parser {
 
         match self.peek().cloned() {
             Some(Token::Tilde) => {
+                let (line, col) = self.peek_span().unwrap_or((0, 0));
                 self.advance();
-                self.parse_append(fields, spans, depth);
+                self.parse_append(fields, spans, depth, line, col);
             }
             Some(Token::Ident(name)) => {
                 let (line, col) = self.peek_span().unwrap_or((0, 0));
@@ -288,9 +289,10 @@ impl Parser {
         fields: &mut Vec<(String, Value)>,
         _spans: &mut Spans,
         depth: usize,
+        tilde_line: usize,
+        tilde_col: usize,
     ) {
         if let Some(Token::Ident(name)) = self.peek().cloned() {
-            let (line, col) = self.peek_span().unwrap_or((0, 0));
             self.advance();
             self.skip_newlines();
 
@@ -311,16 +313,16 @@ impl Parser {
                 if let Value::Array(ref mut arr) = existing.1 {
                     arr.push(entry);
                 } else {
-                    let current_source = self.get_source_line(line).to_string();
+                    let current_source = self.get_source_line(tilde_line).to_string();
                     let token_len = name.len();
                     let error = self.format_error(
                         "type-conflict",
                         &format!("'{name}' is not an array"),
                         &[(
-                            line,
-                            col,
+                            tilde_line,
+                            tilde_col,
                             &current_source,
-                            token_len,
+                            token_len + 1,
                             Some("append attempted here"),
                         )],
                     );
@@ -363,8 +365,8 @@ impl Parser {
 
         let mut out = String::new();
 
-        out += &color_fmt!("[dim]┌─[/] [bold red]error[/]: [bold]{}\n", kind);
-        out += &color_fmt!("[dim]│[/]  {}\n", filename);
+        out += &color_fmt!("[dim]┌─[/] [bold red]error[/red]: {}\n", kind);
+        out += &color_fmt!("[dim]│[/]  [cyan]-->[/] {}\n", filename);
 
         for (line, col, source_line, token_len, note) in lines {
             let gutter = format!("{line}:{col}");
@@ -372,15 +374,11 @@ impl Parser {
             out += &color_fmt!("[dim]├─[/] [cyan]{}[/] {}\n", gutter, source_line);
 
             let start = col.saturating_sub(1);
-
             let mut caret_line = String::new();
-
             let gutter_width = UnicodeWidthStr::width(gutter.as_str());
             caret_line.push_str(&" ".repeat(gutter_width + 1));
-
             let prefix_chars = source_line.chars().take(start).count();
             caret_line.push_str(&" ".repeat(prefix_chars));
-
             caret_line.push_str(&"^".repeat(*token_len.max(&1)));
 
             if let Some(note_text) = note {
@@ -390,7 +388,7 @@ impl Parser {
             }
         }
 
-        out += &color_fmt!("[dim]└─[/] [bold]{}", message);
+        out += &color_fmt!("[dim]└─[/] [bold]{}\n\n", message);
 
         out
     }
