@@ -290,6 +290,7 @@ impl Parser {
         depth: usize,
     ) {
         if let Some(Token::Ident(name)) = self.peek().cloned() {
+            let (line, col) = self.peek_span().unwrap_or((0, 0));
             self.advance();
             self.skip_newlines();
 
@@ -310,10 +311,18 @@ impl Parser {
                 if let Value::Array(ref mut arr) = existing.1 {
                     arr.push(entry);
                 } else {
+                    let current_source = self.get_source_line(line).to_string();
+                    let token_len = name.len();
                     let error = self.format_error(
                         "type-conflict",
                         &format!("'{name}' is not an array"),
-                        &[],
+                        &[(
+                            line,
+                            col,
+                            &current_source,
+                            token_len,
+                            Some("append attempted here"),
+                        )],
                     );
                     self.errors.push(error);
                 }
@@ -404,17 +413,31 @@ impl Parser {
                     }
                     existing.1 = Value::Object(a);
                 }
-                (old, _new) => {
+                (old, new) => {
                     existing.1 = old;
                     let current_source = self.get_source_line(line).to_string();
                     let token_len = key.len();
+
+                    let is_type_conflict = matches!(
+                        (&existing.1, &new),
+                        (Value::Object(_), _) | (_, Value::Object(_))
+                    );
+
+                    let (kind, message) = if is_type_conflict {
+                        (
+                            "type-conflict",
+                            format!("'{key}' cannot be both a scalar and an object"),
+                        )
+                    } else {
+                        ("duplicate-key", format!("'{key}' was already defined"))
+                    };
 
                     let error = if let Some((first_line, first_col, first_source)) =
                         spans.get(&key).cloned()
                     {
                         self.format_error(
-                            "duplicate-key",
-                            &format!("'{key}' was already defined"),
+                            kind,
+                            &message,
                             &[
                                 (
                                     first_line,
@@ -434,8 +457,8 @@ impl Parser {
                         )
                     } else {
                         self.format_error(
-                            "duplicate-key",
-                            &format!("'{key}' was already defined"),
+                            kind,
+                            &message,
                             &[(
                                 line,
                                 col,

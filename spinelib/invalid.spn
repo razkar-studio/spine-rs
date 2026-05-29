@@ -1,2 +1,18 @@
+# type-conflict: scalar then object
+server = localhost
+server
+| port = 8080
+
+# duplicate-key
 host = localhost
 host = example.com
+
+# type-conflict via append: not an array
+mode = production
+~mode
+| env = staging
+
+# duplicate-key deep in an object
+database
+| host = db.local
+| host = db.remote

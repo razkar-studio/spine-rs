@@ -62,5 +62,6 @@ fn test_from_path_filename_in_error() {
         panic!("expected parse error");
     };
     assert!(!errors.is_empty());
+    println!("{}", errors[0]);
     assert!(errors[0].contains("invalid.spn"), "got: {}", errors[0]);
 }
