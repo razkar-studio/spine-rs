@@ -12,6 +12,7 @@ pub struct SpineValue {
 
 unsafe extern "C" {
     pub fn spine_parse(input: *const c_char) -> *mut SpineDoc;
+    pub fn spine_parse_named(input: *const c_char, filename: *const c_char) -> *mut SpineDoc;
     pub fn spine_has_errors(doc: *const SpineDoc) -> bool;
     pub fn spine_get_errors(doc: *const SpineDoc) -> *mut c_char;
     pub fn spine_doc_root(doc: *const SpineDoc) -> *const SpineValue;

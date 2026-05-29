@@ -35,6 +35,31 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
+    fn from_ptr(ptr: *mut ffi::SpineDoc) -> Result<Self, DocError> {
+        if ptr.is_null() {
+            return Err(DocError::Parse(vec![
+                "spine_parse returned null".to_string(),
+            ]));
+        }
+        let doc = Self { ptr };
+        if unsafe { ffi::spine_has_errors(ptr) } {
+            let err_ptr = unsafe { ffi::spine_get_errors(ptr) };
+            let errors = if err_ptr.is_null() {
+                vec!["unknown parse error".to_string()]
+            } else {
+                let s = unsafe { CStr::from_ptr(err_ptr) }
+                    .to_string_lossy()
+                    .into_owned();
+                unsafe {
+                    ffi::spine_free_string(err_ptr);
+                }
+                return Err(DocError::Parse(vec![s]));
+            };
+            return Err(DocError::Parse(errors));
+        }
+        Ok(doc)
+    }
+
     #[must_use]
     pub fn from_str_or_panic(input: impl Into<String>) -> Self {
         Self::from_str(input).unwrap_or_else(|errors| {
@@ -59,8 +84,18 @@ impl Document {
     /// Returns a `DocError` if the file cannot be read or the content is invalid.
     pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, DocError> {
         let path = path.into();
-        let contents = fs::read_to_string(path)?;
-        Self::from_str(contents)
+        let contents = fs::read_to_string(&path)?;
+        let c_input =
+            CString::new(contents).map_err(|_| vec!["invalid input string".to_string()])?;
+        let filename = path.to_string_lossy();
+        let c_filename = CString::new(filename.as_ref()).ok();
+        let ptr = unsafe {
+            ffi::spine_parse_named(
+                c_input.as_ptr(),
+                c_filename.as_ref().map_or(std::ptr::null(), |f| f.as_ptr()),
+            )
+        };
+        Self::from_ptr(ptr)
     }
 
     /// Parses a Spine document from a string.
@@ -73,32 +108,7 @@ impl Document {
         let input = input.into();
         let c_input = CString::new(input).map_err(|_| vec!["invalid input string".to_string()])?;
         let ptr = unsafe { ffi::spine_parse(c_input.as_ptr()) };
-
-        if ptr.is_null() {
-            return Err(DocError::Parse(vec![
-                "spine_parse returned null".to_string(),
-            ]));
-        }
-
-        let doc = Self { ptr };
-
-        if unsafe { ffi::spine_has_errors(ptr) } {
-            let err_ptr = unsafe { ffi::spine_get_errors(ptr) };
-            let errors = if err_ptr.is_null() {
-                vec!["unknown parse error".to_string()]
-            } else {
-                let s = unsafe { CStr::from_ptr(err_ptr) }
-                    .to_string_lossy()
-                    .into_owned();
-                unsafe {
-                    ffi::spine_free_string(err_ptr);
-                }
-                return Err(DocError::Parse(vec![s]));
-            };
-            return Err(DocError::Parse(errors));
-        }
-
-        Ok(doc)
+        Self::from_ptr(ptr)
     }
 
     #[must_use]

@@ -16,6 +16,14 @@ extern "C" {
 /// `input` must be a valid null-terminated C string.
 SpineDoc *spine_parse(const char *input);
 
+/// Parses Spine source with an associated filename for error messages.
+///
+/// # Safety
+///
+/// `input` must be a valid null-terminated C string.
+/// `filename` must be a valid null-terminated C string, or null.
+SpineDoc *spine_parse_named(const char *input, const char *filename);
+
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.

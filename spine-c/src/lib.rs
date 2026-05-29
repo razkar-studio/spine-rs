@@ -41,6 +41,49 @@ pub unsafe extern "C" fn spine_parse(input: *const c_char) -> *mut SpineDoc {
     Box::into_raw(Box::new(doc))
 }
 
+/// Parses Spine source with an associated filename for error messages.
+///
+/// # Safety
+///
+/// `input` must be a valid null-terminated C string.
+/// `filename` must be a valid null-terminated C string, or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spine_parse_named(
+    input: *const c_char,
+    filename: *const c_char,
+) -> *mut SpineDoc {
+    if input.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(input) };
+    let Ok(src) = c_str.to_str() else {
+        return std::ptr::null_mut();
+    };
+
+    let tokens = Lexer::new(src).tokenize();
+    let mut parser = Parser::new(tokens, src);
+
+    if !filename.is_null() {
+        let fname_cstr = unsafe { CStr::from_ptr(filename) };
+        if let Ok(fname) = fname_cstr.to_str() {
+            parser = parser.with_source(fname);
+        }
+    }
+
+    let result = parser.parse();
+
+    let doc = match result {
+        Ok(value) => SpineDoc {
+            root: Some(value),
+            errors: Vec::new(),
+        },
+        Err(errors) => SpineDoc { root: None, errors },
+    };
+
+    Box::into_raw(Box::new(doc))
+}
+
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.

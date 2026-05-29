@@ -61,7 +61,9 @@ impl Parser {
     }
 
     fn skip_comments_and_newlines(&mut self) {
-        while let Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) = self.peek() {
+        while let Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) =
+            self.peek()
+        {
             self.advance();
         }
     }
@@ -97,6 +99,11 @@ impl Parser {
             Some(Token::Tilde) => {
                 self.advance();
                 self.parse_append(fields, spans, depth);
+            }
+            Some(Token::Ident(name)) => {
+                let (line, col) = self.peek_span().unwrap_or((0, 0));
+                self.advance();
+                self.parse_ident(name, fields, spans, depth, line, col);
             }
             _ => {
                 self.advance();
@@ -271,10 +278,6 @@ impl Parser {
             Some(Token::Tagged(tag, content)) => {
                 self.advance();
                 Value::Tagged(tag, content)
-            }
-            Some(Token::Ident(s)) => {
-                self.advance();
-                Value::String(s)
             }
             _ => Value::Null,
         }
