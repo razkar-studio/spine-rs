@@ -2,13 +2,12 @@
 
 Supported, official, or officially acknowledged ports for the Spine data format.
 
-| Language | Library Name   | Status   |
-|----------|----------------|----------|
-| Rust     | `spinelib`     | Unstable |
+| Language |      Library Name     |  Version  |
+|----------|-----------------------|-----------|
+| Rust     | [`spinelib`](https://codeberg.org/razkar/spine-rs/src/branch/main/spinelib) | Unstable (no version) |
+| C++      | [`spinelib`](https://codeberg.org/razkar/spinelib-cpp) | Unstable (v0.1.0) |
 
 _(that's it currently...)_
-
-_(yes not even a C port even though the spine-c header exists, that's not an official port by my standards)_
 
 ---
 
