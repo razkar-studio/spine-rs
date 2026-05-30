@@ -55,16 +55,42 @@ impl Parser {
     }
 
     fn skip_newlines(&mut self) {
-        while self.peek() == Some(&Token::Newline) {
-            self.advance();
-        }
+        self.skip_comments_and_newlines();
     }
 
     fn skip_comments_and_newlines(&mut self) {
-        while let Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) =
-            self.peek()
-        {
-            self.advance();
+        loop {
+            match self.peek() {
+                Some(Token::Newline | Token::LineComment(_) | Token::BlockComment(_)) => {
+                    self.advance();
+                }
+                Some(Token::Pipe) => {
+                    let mut lookahead = self.pos;
+                    while let Some((Token::Pipe, _, _)) = self.tokens.get(lookahead) {
+                        lookahead += 1;
+                    }
+
+                    match self.tokens.get(lookahead) {
+                        Some((
+                            Token::Newline | Token::LineComment(_) | Token::BlockComment(_),
+                            _,
+                            _,
+                        )) => {
+                            while self.pos <= lookahead {
+                                self.advance();
+                            }
+                        }
+                        None => {
+                            while self.pos < lookahead {
+                                self.advance();
+                            }
+                            break;
+                        }
+                        _ => break,
+                    }
+                }
+                _ => break,
+            }
         }
     }
 
@@ -457,8 +483,10 @@ impl Parser {
 
         self.skip_comments_and_newlines();
 
+        let base_depth = self.current_depth();
+
         while self.peek().is_some() {
-            self.parse_statement(&mut fields, &mut spans, 0);
+            self.parse_statement(&mut fields, &mut spans, base_depth);
             self.skip_comments_and_newlines();
         }
 
@@ -481,13 +509,23 @@ impl Parser {
 
         let mut out = String::new();
 
-        out += &color_fmt!("[dim]┌─[/] [bold red]error[/red]: {}\n", kind);
-        out += &color_fmt!("[dim]│[/]  [cyan]-->[/] {}\n", filename);
+        out += &color_fmt!(
+            "[dim]┌─[/] [bold red]error[/red]: {}\n",
+            farben_escape(kind.to_string())
+        );
+        out += &color_fmt!(
+            "[dim]│[/]  [cyan]-->[/] {}\n",
+            farben_escape(filename.to_string())
+        );
 
         for (line, col, source_line, token_len, note) in lines {
             let gutter = format!("{line}:{col}");
 
-            out += &color_fmt!("[dim]├─[/] [cyan]{}[/] {}\n", gutter, source_line);
+            out += &color_fmt!(
+                "[dim]├─[/] [cyan]{}[/] {}\n",
+                gutter,
+                farben_escape(source_line.to_string())
+            );
 
             let start = col.saturating_sub(1);
             let mut caret_line = String::new();
@@ -498,13 +536,17 @@ impl Parser {
             caret_line.push_str(&"^".repeat(*token_len.max(&1)));
 
             if let Some(note_text) = note {
-                out += &color_fmt!("[dim]│[/]  [red]{} {}[/]\n", caret_line, note_text);
+                out += &color_fmt!(
+                    "[dim]│[/]  [red]{} {}[/]\n",
+                    caret_line,
+                    farben_escape(note_text.to_string())
+                );
             } else {
                 out += &color_fmt!("[dim]│[/]  [red]{}[/]\n", caret_line);
             }
         }
 
-        out += &color_fmt!("[dim]└─[/] [bold]{}\n\n", message);
+        out += &color_fmt!("[dim]└─[/] [bold]{}", farben_escape(message.to_string()));
 
         out
     }
@@ -517,29 +559,44 @@ impl Parser {
         value: Value,
         line: usize,
         col: usize,
-        debug_depth: usize, // temporary
+        debug_depth: usize,
     ) {
+        // if key == "enabled" && spans.contains_key("enabled") {
+        //     eprintln!(
+        //         "  COLLISION - spans contents: {:?}",
+        //         spans.keys().collect::<Vec<_>>()
+        //     );
+        // }
+        // eprintln!(
+        //     "DEBUG: depth={debug_depth} key='{key}' spans_ptr={:p}",
+        //     spans as *const _
+        // );
+        // eprintln!("{}", std::backtrace::Backtrace::capture());
+        // if key == "enabled" {
+        //     eprintln!(
+        //         "merge_into: key=enabled line={line} col={col} spans_ptr={:p}",
+        //         spans as *const _
+        //     );
+        //     eprintln!(
+        //         "  spans already contains 'enabled': {}",
+        //         spans.contains_key("enabled")
+        //     );
+        //     eprintln!(
+        //         "  fields already contains 'enabled': {}",
+        //         fields.iter().any(|(k, _)| k == "enabled")
+        //     );
+        //     eprintln!(
+        //         "  fields keys: {:?}",
+        //         fields.iter().map(|(k, _)| k).collect::<Vec<_>>()
+        //     );
+        // }
+
         if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &key) {
-            eprintln!(
-                "DEBUG: duplicate-key for key '{}', existing keys in this spans map: {:?}",
-                key,
-                spans.keys().collect::<Vec<_>>()
-            );
-            eprintln!(
-                "DEBUG: spans ptr={:p}, keys={:?}",
-                spans as *const _,
-                spans.keys().collect::<Vec<_>>()
-            );
-            eprintln!(
-                "DEBUG: depth={debug_depth} key='{key}' spans_ptr={:p}",
-                spans as *const _
-            );
-            eprintln!("{}", std::backtrace::Backtrace::capture());
             match (std::mem::take(&mut existing.1), value) {
                 (Value::Object(mut a), Value::Object(b)) => {
+                    let mut child_spans = Spans::new();
                     for (k, v) in b {
-                        let mut merge_spans = Spans::new();
-                        self.merge_into(&mut a, &mut merge_spans, k, v, line, col, debug_depth + 1);
+                        self.merge_into(&mut a, &mut child_spans, k, v, line, col, debug_depth + 1);
                     }
                     existing.1 = Value::Object(a);
                 }
@@ -607,4 +664,8 @@ impl Parser {
             fields.push((key, value));
         }
     }
+}
+
+fn farben_escape(input: String) -> String {
+    input.replace("[", "\\[")
 }

@@ -103,7 +103,7 @@ pub unsafe extern "C" fn spine_get_errors(doc: *const SpineDoc) -> *mut c_char {
     if doc.is_null() {
         return std::ptr::null_mut();
     }
-    let errors = unsafe { (*doc).errors.join("") };
+    let errors = unsafe { (*doc).errors.join("\n\n") };
     CString::new(errors).map_or(std::ptr::null_mut(), CString::into_raw)
 }
 

@@ -235,6 +235,14 @@ fn test_from_file() {
     let path = PathBuf::from_str("../example.spn").unwrap();
     let src = fs::read_to_string(path).unwrap();
     let tokens = Lexer::new(&src).tokenize();
+
+    // DEBUG
+    for (i, (tok, line, col)) in tokens.iter().enumerate() {
+        if *line >= 78 && *line <= 96 {
+            eprintln!("{i}: L{line}:C{col} {tok:?}");
+        }
+    }
+
     let result = Parser::new(tokens, &src).parse();
     if let Err(errors) = result {
         println!("{}", errors.join(""));
