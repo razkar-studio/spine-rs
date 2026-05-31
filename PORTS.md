@@ -34,7 +34,7 @@ Bindings should target:
 - macOS: `.dylib` (universal: x86_64 + aarch64)
 
 ### Portable (WASM)
-- **Any platform with a WASM runtime** — `spine_abi.wasm`
+- **Any platform with a WASM runtime**: `spine_abi.wasm`
   Works in browsers (via `wasm-bindgen`), wasmtime, wasmer, etc.
 
 ## CI artifacts
@@ -42,7 +42,7 @@ Bindings should target:
 Prebuilt libraries are available from GitHub Actions artifacts/releases:
 
 - **Native**: individual per-target downloads (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-musl`, etc.)
-- **Portable**: `wasm32-unknown-unknown` — runs in any WASM runtime
+- **Portable**: `wasm32-unknown-unknown`: runs in any WASM runtime
 - **All-in-one**: `spine-abi-all` bundle containing every artifact plus `spine.h`
 
 > WASM builds are a separate distribution channel from native shared libraries.
