@@ -58,3 +58,33 @@ jobs:
         with:
           name: ${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.lib_name }}
+
+  bundle:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: artifacts
+
+      - name: Bundle all libs
+        shell: bash
+        run: |
+          mkdir -p bundle
+          for dir in artifacts/*/; do
+            target=$(basename "$dir")
+            cp -a "$dir" bundle/
+          done
+          cp include/spine.h bundle/
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: spine-c-all
+          path: bundle/
