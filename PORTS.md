@@ -7,11 +7,12 @@ Supported, official, or officially acknowledged ports for the Spine data format.
 | Rust     | [`spinelib`](https://codeberg.org/razkar/spine-rs/src/branch/main/spinelib) | Unstable (no version, unpublished) |
 | C++      | [`spinelib`](https://codeberg.org/razkar/spinelib-cpp) | Unstable (v0.1.0, unpublished) |
 | Python   | [`spinelib`](https://codeberg.org/razkar/pyspinelib) | Unstable (no version, unpublished) |
+| Odin     | [`spinelib`](https://codeberg.org/razkar/spinelib-odin) (spinelib-odin/spinelib) | Unstable (v0.1.0, unpublished)
 
 _(that's it currently...)_
 
 > [!NOTE]
-> after one more surprise language and other than C, i will be out of languages that i know or have known and is still familiar with. expect time of ports coming to be slower
+> i do not want to make a C port, just use the abi. i am out of languages i know
 
 ---
 
