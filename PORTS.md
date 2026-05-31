@@ -20,18 +20,31 @@ _(that's it currently...)_
 
 ## Overview
 
-`spine-c` exposes the official C ABI for creating bindings to other languages.
+`spine-abi` exposes the official ABI for creating bindings to other languages.
 
 Bindings should target:
 - `include/spine.h`
-- the generated shared libraries
+- the generated shared libraries or WASM module
 
 ## Supported library formats
 
-- Linux/BSD: `.so`
-- Windows: `.dll`
-- macOS: `.dylib`
+### Native (shared libraries)
+- Linux/BSD: `.so` (musl and glibc, x86_64 and aarch64)
+- Windows: `.dll` (x86_64 and aarch64)
+- macOS: `.dylib` (universal: x86_64 + aarch64)
+
+### Portable (WASM)
+- **Any platform with a WASM runtime** — `spine_abi.wasm`
+  Works in browsers (via `wasm-bindgen`), wasmtime, wasmer, etc.
 
 ## CI artifacts
 
-Prebuilt libraries are available from GitHub Actions artifacts/releases.
+Prebuilt libraries are available from GitHub Actions artifacts/releases:
+
+- **Native**: individual per-target downloads (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-musl`, etc.)
+- **Portable**: `wasm32-unknown-unknown` — runs in any WASM runtime
+- **All-in-one**: `spine-abi-all` bundle containing every artifact plus `spine.h`
+
+> WASM builds are a separate distribution channel from native shared libraries.
+> They exist for environments where native linking is unavailable or impractical,
+> providing a portable fallback without replacing the native ABI matrix.

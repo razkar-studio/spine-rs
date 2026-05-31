@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "spine-c", "spine-rs", "spinelib"
+    "spine-abi", "spine-rs", "spinelib"
 ]
 resolver = "3"
 

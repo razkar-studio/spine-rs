@@ -1,5 +1,5 @@
 [package]
-name = "spine-c"
+name = "spine-abi"
 version = "0.1.0"
 edition = "2024"
 

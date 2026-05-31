@@ -351,3 +351,47 @@ pub unsafe extern "C" fn spine_free_string(s: *mut c_char) {
         }
     }
 }
+
+/// Parser and spec metadata exposed by the ABI layer.
+#[repr(C)]
+pub struct SpineFormatDetails {
+    pub version: *const c_char,
+    pub spec: *const c_char,
+    pub backend: *const c_char,
+}
+
+/// Returns the parser version, spec version, and whether this is native or WASM.
+///
+/// All pointers point to leaked static memory — no free is required.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
+    fn leak(s: &str) -> *mut c_char {
+        CString::new(s).unwrap().into_raw()
+    }
+
+    let backend = if cfg!(target_arch = "wasm32") {
+        "wasm"
+    } else {
+        "native"
+    };
+
+    SpineFormatDetails {
+        version: leak(env!("CARGO_PKG_VERSION")),
+        spec: leak("1.0-rc.1"),
+        backend: leak(backend),
+    }
+}
+
+/// Frees the strings returned by `spine_format_details`.
+///
+/// # Safety
+///
+/// `details` must have been returned by `spine_format_details` and not freed already.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spine_free_format_details(details: SpineFormatDetails) {
+    unsafe {
+        drop(CString::from_raw(details.version as *mut c_char));
+        drop(CString::from_raw(details.spec as *mut c_char));
+        drop(CString::from_raw(details.backend as *mut c_char));
+    }
+}

@@ -14,27 +14,27 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            lib_name: libspine_c.so
+            lib_name: libspine_abi.so
 
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            lib_name: libspine_c.so
+            lib_name: libspine_abi.so
 
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            lib_name: libspine_c.so
+            lib_name: libspine_abi.so
 
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            lib_name: libspine_c.so
+            lib_name: libspine_abi.so
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            lib_name: spine_c.dll
+            lib_name: spine_abi.dll
 
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            lib_name: spine_c.dll
+            lib_name: spine_abi.dll
 
     runs-on: ${{ matrix.os }}
 
@@ -57,7 +57,7 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-        run: cargo build --release --target ${{ matrix.target }} -p spine-c
+        run: cargo build --release --target ${{ matrix.target }} -p spine-abi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -78,27 +78,48 @@ jobs:
           targets: x86_64-apple-darwin aarch64-apple-darwin
 
       - name: Build x86_64
-        run: cargo build --release --target x86_64-apple-darwin -p spine-c
+        run: cargo build --release --target x86_64-apple-darwin -p spine-abi
 
       - name: Build aarch64
-        run: cargo build --release --target aarch64-apple-darwin -p spine-c
+        run: cargo build --release --target aarch64-apple-darwin -p spine-abi
 
       - name: Create universal binary
         run: |
           mkdir -p dist
           lipo -create \
-            target/x86_64-apple-darwin/release/libspine_c.dylib \
-            target/aarch64-apple-darwin/release/libspine_c.dylib \
-            -output dist/libspine_c.dylib
+            target/x86_64-apple-darwin/release/libspine_abi.dylib \
+            target/aarch64-apple-darwin/release/libspine_abi.dylib \
+            -output dist/libspine_abi.dylib
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: universal-apple-darwin
-          path: dist/libspine_c.dylib
+          path: dist/libspine_abi.dylib
+
+  wasm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Build
+        run: cargo build --release --target wasm32-unknown-unknown -p spine-abi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm32-unknown-unknown
+          path: target/wasm32-unknown-unknown/release/spine_abi.wasm
 
   bundle:
-    needs: [build, macos-universal]
+    needs: [build, macos-universal, wasm]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,5 +145,5 @@ jobs:
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: spine-c-all
+          name: spine-abi-all
           path: bundle/

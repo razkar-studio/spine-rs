@@ -30,4 +30,13 @@ unsafe extern "C" {
     pub fn spine_free_doc(doc: *mut SpineDoc);
     pub fn spine_free_value(val: *mut SpineValue);
     pub fn spine_free_string(s: *mut c_char);
+    pub fn spine_format_details() -> SpineFormatDetails;
+    pub fn spine_free_format_details(details: SpineFormatDetails);
+}
+
+#[repr(C)]
+pub struct SpineFormatDetails {
+    pub version: *const c_char,
+    pub spec: *const c_char,
+    pub backend: *const c_char,
 }

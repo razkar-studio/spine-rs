@@ -9,6 +9,13 @@ struct SpineDoc;
 
 struct SpineValue;
 
+/// Parser and spec metadata exposed by the ABI layer.
+struct SpineFormatDetails {
+  const char *version;
+  const char *spec;
+  const char *backend;
+};
+
 extern "C" {
 
 /// # Safety
@@ -109,5 +116,17 @@ void spine_free_value(SpineValue *val);
 ///
 /// `s` must be a valid pointer to a C string allocated by Spine, or null.
 void spine_free_string(char *s);
+
+/// Returns the parser version, spec version, and whether this is native or WASM.
+///
+/// All pointers point to leaked static memory — no free is required.
+SpineFormatDetails spine_format_details();
+
+/// Frees the strings returned by `spine_format_details`.
+///
+/// # Safety
+///
+/// `details` must have been returned by `spine_format_details` and not freed already.
+void spine_free_format_details(SpineFormatDetails details);
 
 }  // extern "C"

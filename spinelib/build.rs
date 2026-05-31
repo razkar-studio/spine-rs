@@ -6,5 +6,5 @@ fn main() {
         .join("target/debug");
 
     println!("cargo:rustc-link-search=native={}", lib_path.display());
-    println!("cargo:rustc-link-lib=dylib=spine_c");
+    println!("cargo:rustc-link-lib=dylib=spine_abi");
 }

@@ -61,6 +61,15 @@ fn test_ffi_from_file() {
 }
 
 #[test]
+fn test_format_details() {
+    let details = format_details();
+    assert!(!details.version.is_empty(), "version should not be empty");
+    assert!(!details.spec.is_empty(), "spec should not be empty");
+    assert_eq!(details.backend, "native");
+    println!("{:?}", details);
+}
+
+#[test]
 fn test_ffi_dotted_append() {
     let src =
         "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";
