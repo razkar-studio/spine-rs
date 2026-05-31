@@ -53,17 +53,8 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: cargo build --release --target ${{ matrix.target }} -p spine-c
 
-      - name: Prepare dist
-        shell: bash
-        run: |
-          mkdir -p dist/include
-          mkdir -p dist/lib
-
-          cp include/spine.h dist/include/
-          cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} dist/lib/
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: dist/
+          path: target/${{ matrix.target }}/release/${{ matrix.lib_name }}
