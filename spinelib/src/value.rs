@@ -13,7 +13,7 @@ impl Value {
         Some(Self { ptr })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn value_type(&self) -> ValueType {
         match unsafe { ffi::spine_value_type(self.ptr) } {
             1 => ValueType::Bool,
@@ -26,7 +26,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self.value_type() {
             ValueType::Bool => Some(unsafe { ffi::spine_value_bool(self.ptr) }),
@@ -34,7 +34,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn as_f64(&self) -> Option<f64> {
         match self.value_type() {
             ValueType::Number => Some(unsafe { ffi::spine_value_number(self.ptr) }),
@@ -42,7 +42,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn as_str(&self) -> Option<String> {
         match self.value_type() {
             ValueType::String => {
@@ -62,7 +62,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn tag(&self) -> Option<(String, String)> {
         match self.value_type() {
             ValueType::Tagged => {
@@ -89,21 +89,25 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         match self.value_type() {
-            ValueType::Array => usize::try_from(unsafe { ffi::spine_array_len(self.ptr) }).unwrap_or(0),
-            ValueType::Object => usize::try_from(unsafe { ffi::spine_object_len(self.ptr) }).unwrap_or(0),
+            ValueType::Array => {
+                usize::try_from(unsafe { ffi::spine_array_len(self.ptr) }).unwrap_or(0)
+            }
+            ValueType::Object => {
+                usize::try_from(unsafe { ffi::spine_object_len(self.ptr) }).unwrap_or(0)
+            }
             _ => 0,
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_index(&self, index: usize) -> Option<Self> {
         match self.value_type() {
             ValueType::Array => {
@@ -114,7 +118,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, key: &str) -> Option<Self> {
         match self.value_type() {
             ValueType::Object => {
@@ -126,7 +130,7 @@ impl Value {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn key_at(&self, index: usize) -> Option<String> {
         match self.value_type() {
             ValueType::Object => {

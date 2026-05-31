@@ -201,7 +201,7 @@ impl Parser {
                                 } else {
                                     match self.peek().cloned() {
                                         Some(Token::Newline) | None => entries.push(Value::Null),
-                                        Some(Token::Ident(name)) => {
+                                        Some(Token::Ident(name) | Token::Str(name)) => {
                                             let (line, col) = self.peek_span().unwrap_or((0, 0));
                                             self.advance();
 
@@ -561,36 +561,6 @@ impl Parser {
         col: usize,
         debug_depth: usize,
     ) {
-        // if key == "enabled" && spans.contains_key("enabled") {
-        //     eprintln!(
-        //         "  COLLISION - spans contents: {:?}",
-        //         spans.keys().collect::<Vec<_>>()
-        //     );
-        // }
-        // eprintln!(
-        //     "DEBUG: depth={debug_depth} key='{key}' spans_ptr={:p}",
-        //     spans as *const _
-        // );
-        // eprintln!("{}", std::backtrace::Backtrace::capture());
-        // if key == "enabled" {
-        //     eprintln!(
-        //         "merge_into: key=enabled line={line} col={col} spans_ptr={:p}",
-        //         spans as *const _
-        //     );
-        //     eprintln!(
-        //         "  spans already contains 'enabled': {}",
-        //         spans.contains_key("enabled")
-        //     );
-        //     eprintln!(
-        //         "  fields already contains 'enabled': {}",
-        //         fields.iter().any(|(k, _)| k == "enabled")
-        //     );
-        //     eprintln!(
-        //         "  fields keys: {:?}",
-        //         fields.iter().map(|(k, _)| k).collect::<Vec<_>>()
-        //     );
-        // }
-
         if let Some(existing) = fields.iter_mut().find(|(k, _)| k == &key) {
             match (std::mem::take(&mut existing.1), value) {
                 (Value::Object(mut a), Value::Object(b)) => {

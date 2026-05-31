@@ -227,7 +227,11 @@ impl Lexer {
                 self.advance();
             }
             self.after_value_start = false;
-            return Token::Str(s.trim_end().to_string());
+            let trimmed = s.trim_end().to_string();
+            if let Ok(n) = trimmed.parse::<f64>() {
+                return Token::Number(n);
+            }
+            return Token::Str(trimmed);
         }
 
         if let Some(c) = self.peek()
