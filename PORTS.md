@@ -14,6 +14,9 @@ _(that's it currently...)_
 > [!NOTE]
 > i do not want to make a C port, just use the abi. i am out of languages i know
 
+> [!NOTE]
+> `spinelib` (Rust) no longer depends on just the dylibs of `spine-abi`. it's not worth the hassle
+
 ---
 
 # Contributing
@@ -44,7 +47,7 @@ Bindings should target:
 In addition to the pointer-based object API (`spine_value_*`, `spine_object_*`,
 etc.), the ABI provides a string-based convenience function:
 
-- `spine_parse_json(input)` — parses Spine and returns the full AST as a JSON
+- `spine_parse_json(input)`: parses Spine and returns the full AST as a JSON
   string with format metadata. Particularly useful from WASM and scripting
   languages where navigating the pointer API is cumbersome.
 

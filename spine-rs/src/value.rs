@@ -1,4 +1,4 @@
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub enum Value {
     #[default]
     Null,

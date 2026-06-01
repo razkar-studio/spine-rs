@@ -16,12 +16,9 @@ Spine uses leading pipes for hierarchy, which is explicit, visually obvious, and
 |-------|-------------|
 | `spine-rs` | The canonical Rust parser and lexer |
 | `spinelib` | Ergonomic Rust API for reading Spine documents |
-| `spine-c` | C ABI for use from any language |
+| `spine-abi` | C ABI for use from any language |
 
 _(See their individual READMEs for more information!)_
-
-> [!NOTE]
-> Fun fact, `spinelib` only depends on `spine-c` which proves that the ABI works. Still, you shouldn't use the ABI unless you're contributing to making a Spine port for another language!
 
 ## Status
 

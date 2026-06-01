@@ -1,13 +1,9 @@
-use crate::ffi;
 use crate::value::Value;
-use std::{
-    ffi::{CStr, CString},
-    fs,
-    path::PathBuf,
-};
+use spine_rs::{Lexer, Parser};
+use std::path::PathBuf;
 
 pub struct Document {
-    ptr: *mut ffi::SpineDoc,
+    root: Option<spine_rs::Value>,
 }
 
 #[derive(Debug)]
@@ -35,29 +31,11 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
-    fn from_ptr(ptr: *mut ffi::SpineDoc) -> Result<Self, DocError> {
-        if ptr.is_null() {
-            return Err(DocError::Parse(vec![
-                "spine_parse returned null".to_string(),
-            ]));
+    fn from_parse_result(result: Result<spine_rs::Value, Vec<String>>) -> Result<Self, DocError> {
+        match result {
+            Ok(value) => Ok(Document { root: Some(value) }),
+            Err(errors) => Err(DocError::Parse(errors)),
         }
-        let doc = Self { ptr };
-        if unsafe { ffi::spine_has_errors(ptr) } {
-            let err_ptr = unsafe { ffi::spine_get_errors(ptr) };
-            let errors = if err_ptr.is_null() {
-                vec!["unknown parse error".to_string()]
-            } else {
-                let s = unsafe { CStr::from_ptr(err_ptr) }
-                    .to_string_lossy()
-                    .into_owned();
-                unsafe {
-                    ffi::spine_free_string(err_ptr);
-                }
-                return Err(DocError::Parse(vec![s]));
-            };
-            return Err(DocError::Parse(errors));
-        }
-        Ok(doc)
     }
 
     #[must_use]
@@ -77,51 +55,23 @@ impl Document {
         })
     }
 
-    /// Loads a Spine document from a file path.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `DocError` if the file cannot be read or the content is invalid.
     pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, DocError> {
         let path = path.into();
-        let contents = fs::read_to_string(&path)?;
-        let c_input =
-            CString::new(contents).map_err(|_| vec!["invalid input string".to_string()])?;
-        let filename = path.to_string_lossy();
-        let c_filename = CString::new(filename.as_ref()).ok();
-        let ptr = unsafe {
-            ffi::spine_parse_named(
-                c_input.as_ptr(),
-                c_filename.as_ref().map_or(std::ptr::null(), |f| f.as_ptr()),
-            )
-        };
-        Self::from_ptr(ptr)
+        let contents = std::fs::read_to_string(&path)?;
+        let tokens = Lexer::new(&contents).tokenize();
+        let mut parser = Parser::new(tokens, &contents).with_source(&path.to_string_lossy());
+        Self::from_parse_result(parser.parse())
     }
 
-    /// Parses a Spine document from a string.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `DocError` if the string contains a null byte or the content is invalid.
-    #[allow(clippy::should_implement_trait)]
     pub fn from_str(input: impl Into<String>) -> Result<Self, DocError> {
         let input = input.into();
-        let c_input = CString::new(input).map_err(|_| vec!["invalid input string".to_string()])?;
-        let ptr = unsafe { ffi::spine_parse(c_input.as_ptr()) };
-        Self::from_ptr(ptr)
+        let tokens = Lexer::new(&input).tokenize();
+        let mut parser = Parser::new(tokens, &input);
+        Self::from_parse_result(parser.parse())
     }
 
     #[must_use]
     pub fn root(&self) -> Option<Value> {
-        let ptr = unsafe { ffi::spine_doc_root(self.ptr) };
-        Value::from_ptr(ptr)
-    }
-}
-
-impl Drop for Document {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::spine_free_doc(self.ptr);
-        }
+        self.root.as_ref().map(|v| Value::from_inner(v.clone()))
     }
 }

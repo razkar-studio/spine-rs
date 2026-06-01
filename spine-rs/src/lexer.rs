@@ -141,7 +141,6 @@ impl Lexer {
     }
 
     fn lex_multiline_string(&mut self) -> Token {
-        let depth = self.line_pipes;
         let start_line = self.line;
         let start_col = self.col;
 
@@ -152,6 +151,20 @@ impl Lexer {
             }
             self.advance();
         }
+
+        let saved = self.pos;
+        let mut depth = 0;
+        while let Some(c) = self.peek() {
+            if c == ' ' || c == '\t' {
+                self.advance();
+            } else if c == '|' {
+                depth += 1;
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        self.pos = saved;
 
         let mut lines = Vec::new();
 
@@ -380,9 +393,29 @@ impl Lexer {
                     self.advance();
                 }
                 '-' => {
-                    tokens.push((Token::Dash, line, col));
-                    self.advance();
-                    self.after_value_start = true;
+                    if self.after_value_start {
+                        let mut s = String::new();
+                        s.push('-');
+                        self.advance();
+                        while let Some(c) = self.peek() {
+                            if c == '\n' || c == '#' {
+                                break;
+                            }
+                            s.push(c);
+                            self.advance();
+                        }
+                        self.after_value_start = false;
+                        let trimmed = s.trim_end().to_string();
+                        if let Ok(n) = trimmed.parse::<f64>() {
+                            tokens.push((Token::Number(n), line, col));
+                        } else {
+                            tokens.push((Token::Str(trimmed), line, col));
+                        }
+                    } else {
+                        tokens.push((Token::Dash, line, col));
+                        self.advance();
+                        self.after_value_start = true;
+                    }
                 }
                 '.' => {
                     tokens.push((Token::Dot, line, col));
