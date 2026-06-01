@@ -70,6 +70,37 @@ fn test_format_details() {
 }
 
 #[test]
+fn test_parse_to_json_success() {
+    let json = parse_to_json("server\n| host = localhost\n| port = 8080\n");
+    assert!(json.contains("\"ok\":true"), "expected success, got: {json}");
+    assert!(json.contains("localhost"), "expected localhost, got: {json}");
+    assert!(json.contains("8080"), "expected 8080, got: {json}");
+    assert!(json.contains("server"), "expected server, got: {json}");
+    assert!(json.contains("host"), "expected host, got: {json}");
+    assert!(json.contains("port"), "expected port, got: {json}");
+    assert!(json.contains("\"backend\":\"native\""));
+    assert!(json.contains("version"));
+    assert!(json.contains("spec"));
+    println!("{json}");
+}
+
+#[test]
+fn test_parse_to_json_errors() {
+    let json = parse_to_json("host = localhost\nhost = example.com\n");
+    assert!(json.contains("\"ok\":false"), "expected failure, got: {json}");
+    assert!(json.contains("duplicate-key"), "expected duplicate-key, got: {json}");
+    assert!(json.contains("\"value\":null"), "expected null value, got: {json}");
+    println!("{json}");
+}
+
+#[test]
+fn test_parse_to_json_empty() {
+    let json = parse_to_json("");
+    assert!(json.contains("ok"), "expected ok field, got: {json}");
+    println!("{json}");
+}
+
+#[test]
 fn test_ffi_dotted_append() {
     let src =
         "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";

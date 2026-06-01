@@ -129,4 +129,21 @@ SpineFormatDetails spine_format_details();
 /// `details` must have been returned by `spine_format_details` and not freed already.
 void spine_free_format_details(SpineFormatDetails details);
 
+/// Parse Spine source and return the AST as a JSON string.
+///
+/// The JSON output includes format metadata and either the parsed
+/// value or error information:
+///
+/// ```json
+/// {"version":"0.1.0","spec":"1.0-rc.1","backend":"native",ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0-rc.1","backend":"native","ok":false,"errors":[...]}
+/// ```
+///
+/// The returned string must be freed with `spine_free_string`.
+///
+/// # Safety
+///
+/// `input` must be a valid null-terminated C string.
+char *spine_parse_json(const char *input);
+
 }  // extern "C"

@@ -1,5 +1,6 @@
 use spine_rs::{Lexer, Parser, Value};
 use std::ffi::{CStr, CString};
+use std::fmt::Write;
 use std::os::raw::{c_char, c_double, c_int, c_ulong};
 
 /// Opaque types that C sees as pointers
@@ -394,4 +395,149 @@ pub unsafe extern "C" fn spine_free_format_details(details: SpineFormatDetails) 
         drop(CString::from_raw(details.spec as *mut c_char));
         drop(CString::from_raw(details.backend as *mut c_char));
     }
+}
+
+/// Parse Spine source and return the AST as a JSON string.
+///
+/// The JSON output includes format metadata and either the parsed
+/// value or error information:
+///
+/// ```json
+/// {"version":"0.1.0","spec":"1.0-rc.1","backend":"native",ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0-rc.1","backend":"native","ok":false,"errors":[...]}
+/// ```
+///
+/// The returned string must be freed with `spine_free_string`.
+///
+/// # Safety
+///
+/// `input` must be a valid null-terminated C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spine_parse_json(input: *const c_char) -> *mut c_char {
+    if input.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(input) };
+    let Ok(src) = c_str.to_str() else {
+        return std::ptr::null_mut();
+    };
+
+    let tokens = Lexer::new(src).tokenize();
+    let mut parser = Parser::new(tokens, src);
+    let result = parser.parse();
+
+    let backend = if cfg!(target_arch = "wasm32") {
+        "wasm"
+    } else {
+        "native"
+    };
+
+    let mut json = String::with_capacity(4096);
+    json.push('{');
+    write_json_str("version", &mut json);
+    json.push_str(":\"");
+    json.push_str(env!("CARGO_PKG_VERSION"));
+    json.push_str("\",");
+    write_json_str("spec", &mut json);
+    json.push_str(":\"1.0-rc.1\",");
+        write_json_str("backend", &mut json);
+        json.push_str(":\"");
+        json.push_str(backend);
+        json.push('"');
+
+    match result {
+        Ok(value) => {
+            json.push_str(",\"ok\":true,");
+            write_json_str("value", &mut json);
+            json.push(':');
+            write_json_value(&value, &mut json);
+            json.push_str(",\"errors\":[]");
+        }
+        Err(errors) => {
+            json.push_str(",\"ok\":false,\"value\":null,");
+            write_json_str("errors", &mut json);
+            json.push_str(":[");
+            for (i, err) in errors.iter().enumerate() {
+                if i > 0 {
+                    json.push(',');
+                }
+                write_json_string(err, &mut json);
+            }
+            json.push(']');
+        }
+    }
+
+    json.push('}');
+    CString::new(json).map_or(std::ptr::null_mut(), CString::into_raw)
+}
+
+fn write_json_str(s: &str, buf: &mut String) {
+    buf.push('"');
+    buf.push_str(s);
+    buf.push('"');
+}
+
+fn write_json_value(val: &Value, buf: &mut String) {
+    match val {
+        Value::Null => buf.push_str("null"),
+        Value::Bool(b) => buf.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) => write_json_number(*n, buf),
+        Value::String(s) => write_json_string(s, buf),
+        Value::Tagged(tag, content) => {
+            buf.push_str("{\"tag\":");
+            write_json_string(tag, buf);
+            buf.push_str(",\"content\":");
+            write_json_string(content, buf);
+            buf.push('}');
+        }
+        Value::Array(arr) => {
+            buf.push('[');
+            for (i, v) in arr.iter().enumerate() {
+                if i > 0 {
+                    buf.push(',');
+                }
+                write_json_value(v, buf);
+            }
+            buf.push(']');
+        }
+        Value::Object(fields) => {
+            buf.push('{');
+            for (i, (k, v)) in fields.iter().enumerate() {
+                if i > 0 {
+                    buf.push(',');
+                }
+                write_json_string(k, buf);
+                buf.push(':');
+                write_json_value(v, buf);
+            }
+            buf.push('}');
+        }
+    }
+}
+
+fn write_json_number(n: f64, buf: &mut String) {
+    if n.is_finite() {
+        let s = format!("{n}");
+        buf.push_str(&s);
+    } else {
+        buf.push('0');
+    }
+}
+
+fn write_json_string(s: &str, buf: &mut String) {
+    buf.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => buf.push_str("\\\""),
+            '\\' => buf.push_str("\\\\"),
+            '\n' => buf.push_str("\\n"),
+            '\t' => buf.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                let _ = write!(buf, "\\u{:04x}", c as u32);
+            }
+            c => buf.push(c),
+        }
+    }
+    buf.push('"');
 }

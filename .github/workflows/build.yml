@@ -28,6 +28,10 @@ jobs:
             target: aarch64-pc-windows-msvc
             lib_name: spine_abi.dll
 
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            lib_name: libspine_abi.so
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -39,15 +43,25 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Linux cross-compilation tools
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !contains(matrix.target, 'android')
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
+      - name: Setup Android NDK
+        if: contains(matrix.target, 'android')
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target ${{ matrix.target }} -p spine-abi
+        run: |
+          if [[ "${{ matrix.target }}" == *android* ]]; then
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          fi
+          cargo build --release --target ${{ matrix.target }} -p spine-abi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -108,8 +122,40 @@ jobs:
           name: wasm32-unknown-unknown
           path: target/wasm32-unknown-unknown/release/spine_abi.wasm
 
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios x86_64-apple-ios
+
+      - name: Build aarch64 (device)
+        run: cargo build --release --target aarch64-apple-ios -p spine-abi
+
+      - name: Build x86_64 (simulator)
+        run: cargo build --release --target x86_64-apple-ios -p spine-abi
+
+      - name: Create universal iOS static library
+        run: |
+          mkdir -p dist
+          lipo -create \
+            target/aarch64-apple-ios/release/libspine_abi.a \
+            target/x86_64-apple-ios/release/libspine_abi.a \
+            -output dist/libspine_abi.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-apple-ios
+          path: dist/libspine_abi.a
+
   bundle:
-    needs: [build, macos-universal, wasm]
+    needs: [build, macos-universal, ios, wasm]
     runs-on: ubuntu-latest
     permissions:
       contents: read

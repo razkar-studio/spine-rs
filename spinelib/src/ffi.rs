@@ -32,6 +32,7 @@ unsafe extern "C" {
     pub fn spine_free_string(s: *mut c_char);
     pub fn spine_format_details() -> SpineFormatDetails;
     pub fn spine_free_format_details(details: SpineFormatDetails);
+    pub fn spine_parse_json(input: *const c_char) -> *mut c_char;
 }
 
 #[repr(C)]
