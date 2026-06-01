@@ -17,15 +17,7 @@ jobs:
             lib_name: libspine_abi.so
 
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            lib_name: libspine_abi.so
-
-          - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            lib_name: libspine_abi.so
-
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
             lib_name: libspine_abi.so
 
           - os: windows-latest
@@ -50,13 +42,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
         run: cargo build --release --target ${{ matrix.target }} -p spine-abi
 
       - name: Upload artifact

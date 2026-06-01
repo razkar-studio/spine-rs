@@ -29,7 +29,7 @@ Bindings should target:
 ## Supported library formats
 
 ### Native (shared libraries)
-- Linux/BSD: `.so` (musl and glibc, x86_64 and aarch64)
+- Linux/BSD: `.so` (x86_64 and aarch64, glibc)
 - Windows: `.dll` (x86_64 and aarch64)
 - macOS: `.dylib` (universal: x86_64 + aarch64)
 
