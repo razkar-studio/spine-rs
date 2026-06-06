@@ -363,10 +363,10 @@ pub struct SpineFormatDetails {
 
 /// Returns the parser version, spec version, and whether this is native or WASM.
 ///
-/// All pointers point to leaked static memory — no free is required.
+/// The caller MUST free the returned struct with `spine_free_format_details`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
-    fn leak(s: &str) -> *mut c_char {
+    fn to_c(s: &str) -> *mut c_char {
         CString::new(s).unwrap().into_raw()
     }
 
@@ -377,9 +377,9 @@ pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
     };
 
     SpineFormatDetails {
-        version: leak(env!("CARGO_PKG_VERSION")),
-        spec: leak("1.0-rc.1"),
-        backend: leak(backend),
+        version: to_c(env!("CARGO_PKG_VERSION")),
+        spec: to_c("1.0-rc.1"),
+        backend: to_c(backend),
     }
 }
 
@@ -441,10 +441,10 @@ pub unsafe extern "C" fn spine_parse_json(input: *const c_char) -> *mut c_char {
     json.push_str("\",");
     write_json_str("spec", &mut json);
     json.push_str(":\"1.0-rc.1\",");
-        write_json_str("backend", &mut json);
-        json.push_str(":\"");
-        json.push_str(backend);
-        json.push('"');
+    write_json_str("backend", &mut json);
+    json.push_str(":\"");
+    json.push_str(backend);
+    json.push('"');
 
     match result {
         Ok(value) => {

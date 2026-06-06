@@ -119,7 +119,7 @@ void spine_free_string(char *s);
 
 /// Returns the parser version, spec version, and whether this is native or WASM.
 ///
-/// All pointers point to leaked static memory — no free is required.
+/// The caller MUST free the returned struct with `spine_free_format_details`.
 SpineFormatDetails spine_format_details();
 
 /// Frees the strings returned by `spine_format_details`.

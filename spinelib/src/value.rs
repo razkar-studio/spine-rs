@@ -69,9 +69,7 @@ impl Value {
     #[must_use]
     pub fn get_index(&self, index: usize) -> Option<Self> {
         match &self.inner {
-            spine_rs::Value::Array(arr) => {
-                arr.get(index).map(|v| Self::from_inner(v.clone()))
-            }
+            spine_rs::Value::Array(arr) => arr.get(index).map(|v| Self::from_inner(v.clone())),
             _ => None,
         }
     }
@@ -90,9 +88,7 @@ impl Value {
     #[must_use]
     pub fn key_at(&self, index: usize) -> Option<String> {
         match &self.inner {
-            spine_rs::Value::Object(fields) => {
-                fields.get(index).map(|(k, _)| k.clone())
-            }
+            spine_rs::Value::Object(fields) => fields.get(index).map(|(k, _)| k.clone()),
             _ => None,
         }
     }

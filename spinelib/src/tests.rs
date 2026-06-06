@@ -116,9 +116,33 @@ fn test_value_array_of_objects() {
     let doc = Document::from_str_or_panic(src);
     let arr = doc.root().unwrap().get("items").unwrap();
     assert_eq!(arr.len(), 3);
-    assert_eq!(arr.get_index(0).unwrap().get("n").unwrap().as_str().unwrap(), "first");
-    assert_eq!(arr.get_index(1).unwrap().get("n").unwrap().as_str().unwrap(), "second");
-    assert_eq!(arr.get_index(2).unwrap().get("n").unwrap().as_str().unwrap(), "third");
+    assert_eq!(
+        arr.get_index(0)
+            .unwrap()
+            .get("n")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "first"
+    );
+    assert_eq!(
+        arr.get_index(1)
+            .unwrap()
+            .get("n")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "second"
+    );
+    assert_eq!(
+        arr.get_index(2)
+            .unwrap()
+            .get("n")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "third"
+    );
 }
 
 #[test]
@@ -139,10 +163,17 @@ fn test_value_object() {
 fn test_deeply_nested() {
     let src = "a\n| b\n| | c\n| | | d = deep\n";
     let doc = Document::from_str_or_panic(src);
-    let val = doc.root().unwrap().get("a").unwrap()
-        .get("b").unwrap()
-        .get("c").unwrap()
-        .get("d").unwrap();
+    let val = doc
+        .root()
+        .unwrap()
+        .get("a")
+        .unwrap()
+        .get("b")
+        .unwrap()
+        .get("c")
+        .unwrap()
+        .get("d")
+        .unwrap();
     assert_eq!(val.as_str().unwrap(), "deep");
 }
 
@@ -187,8 +218,14 @@ fn test_bare_strings() {
     let src = "cfg\n| host = db.primary.local\n| url = https://example.com\n| ttl = 60s\n";
     let doc = Document::from_str_or_panic(src);
     let cfg = doc.root().unwrap().get("cfg").unwrap();
-    assert_eq!(cfg.get("host").unwrap().as_str().unwrap(), "db.primary.local");
-    assert_eq!(cfg.get("url").unwrap().as_str().unwrap(), "https://example.com");
+    assert_eq!(
+        cfg.get("host").unwrap().as_str().unwrap(),
+        "db.primary.local"
+    );
+    assert_eq!(
+        cfg.get("url").unwrap().as_str().unwrap(),
+        "https://example.com"
+    );
     assert_eq!(cfg.get("ttl").unwrap().as_str().unwrap(), "60s");
 }
 
@@ -344,8 +381,14 @@ fn test_format_details() {
 #[test]
 fn test_parse_to_json_success() {
     let json = parse_to_json("server\n| host = localhost\n| port = 8080\n");
-    assert!(json.contains("\"ok\":true"), "expected success, got: {json}");
-    assert!(json.contains("localhost"), "expected localhost, got: {json}");
+    assert!(
+        json.contains("\"ok\":true"),
+        "expected success, got: {json}"
+    );
+    assert!(
+        json.contains("localhost"),
+        "expected localhost, got: {json}"
+    );
     assert!(json.contains("8080"), "expected 8080, got: {json}");
     assert!(json.contains("server"), "expected server, got: {json}");
     assert!(json.contains("host"), "expected host, got: {json}");
@@ -359,9 +402,18 @@ fn test_parse_to_json_success() {
 #[test]
 fn test_parse_to_json_errors() {
     let json = parse_to_json("host = localhost\nhost = example.com\n");
-    assert!(json.contains("\"ok\":false"), "expected failure, got: {json}");
-    assert!(json.contains("duplicate-key"), "expected duplicate-key, got: {json}");
-    assert!(json.contains("\"value\":null"), "expected null value, got: {json}");
+    assert!(
+        json.contains("\"ok\":false"),
+        "expected failure, got: {json}"
+    );
+    assert!(
+        json.contains("duplicate-key"),
+        "expected duplicate-key, got: {json}"
+    );
+    assert!(
+        json.contains("\"value\":null"),
+        "expected null value, got: {json}"
+    );
     println!("{json}");
 }
 
@@ -414,21 +466,42 @@ fn test_traverse_example_file() {
     let doc = Document::from_str_or_panic(include_str!("../../example.spn"));
     let root = doc.root().unwrap();
     let app = root.get("app").unwrap();
-    assert_eq!(app.get("name").unwrap().as_str().unwrap(), "Spine Showcase System");
+    assert_eq!(
+        app.get("name").unwrap().as_str().unwrap(),
+        "Spine Showcase System"
+    );
     let system = root.get("system").unwrap();
     let runtime = system.get("runtime").unwrap();
     assert_eq!(runtime.get("env").unwrap().as_str().unwrap(), "production");
     let telemetry = system.get("telemetry").unwrap();
-    assert_eq!(telemetry.get("endpoint").unwrap().as_str().unwrap(), "https://telemetry.local");
+    assert_eq!(
+        telemetry.get("endpoint").unwrap().as_str().unwrap(),
+        "https://telemetry.local"
+    );
     let features = root.get("features").unwrap();
     let flags = features.get("flags").unwrap();
     assert_eq!(flags.len(), 2);
-    assert_eq!(flags.get_index(0).unwrap().get("name").unwrap().as_str().unwrap(), "new-ui");
+    assert_eq!(
+        flags
+            .get_index(0)
+            .unwrap()
+            .get("name")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "new-ui"
+    );
     let meta = root.get("meta").unwrap();
     let events = meta.get("events").unwrap();
     assert_eq!(events.len(), 3);
     assert_eq!(
-        events.get_index(0).unwrap().get("type").unwrap().as_str().unwrap(),
+        events
+            .get_index(0)
+            .unwrap()
+            .get("type")
+            .unwrap()
+            .as_str()
+            .unwrap(),
         "created"
     );
 }
