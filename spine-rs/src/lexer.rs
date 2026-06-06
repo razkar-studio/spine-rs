@@ -126,9 +126,104 @@ impl Lexer {
                     match self.advance() {
                         Some('n') => s.push('\n'),
                         Some('t') => s.push('\t'),
+                        Some('r') => s.push('\r'),
+                        Some('0') => s.push('\0'),
                         Some('\\') => s.push('\\'),
                         Some('"') => s.push('"'),
-                        _ => {}
+                        Some('x') => {
+                            let (d1, d2) = (
+                                self.input.get(self.pos).copied(),
+                                self.input.get(self.pos + 1).copied(),
+                            );
+                            match (d1, d2) {
+                                (Some(h1), Some(h2))
+                                    if h1.is_ascii_hexdigit()
+                                        && h2.is_ascii_hexdigit() =>
+                                {
+                                    self.advance();
+                                    self.advance();
+                                    let val = (h1.to_digit(16).unwrap() << 4)
+                                        | h2.to_digit(16).unwrap();
+                                    s.push(char::from_u32(val).unwrap());
+                                }
+                                _ => {
+                                    return Token::Error(format!(
+                                        "{start_line}:{start_col} invalid \\x escape"
+                                    ));
+                                }
+                            }
+                        }
+                        Some('u') => {
+                            if self.peek() == Some('{') {
+                                self.advance();
+                                let mut hex = String::new();
+                                loop {
+                                    match self.peek() {
+                                        Some('}') => {
+                                            self.advance();
+                                            break;
+                                        }
+                                        Some(c) if c.is_ascii_hexdigit() => {
+                                            hex.push(c);
+                                            self.advance();
+                                        }
+                                        _ => {
+                                            return Token::Error(format!(
+                                                "{start_line}:{start_col} invalid \\u{{}} escape"
+                                            ));
+                                        }
+                                    }
+                                }
+                                if hex.is_empty() {
+                                    return Token::Error(format!(
+                                        "{start_line}:{start_col} empty \\u{{}} escape"
+                                    ));
+                                }
+                                let val = u32::from_str_radix(&hex, 16).unwrap();
+                                if val > 0x10FFFF {
+                                    return Token::Error(format!(
+                                        "{start_line}:{start_col} unicode escape out of range"
+                                    ));
+                                }
+                                if (0xD800..=0xDFFF).contains(&val) {
+                                    return Token::Error(format!(
+                                        "{start_line}:{start_col} surrogate unicode escape"
+                                    ));
+                                }
+                                s.push(char::from_u32(val).unwrap());
+                            } else {
+                                let mut hex = String::with_capacity(4);
+                                for _ in 0..4 {
+                                    match self.advance() {
+                                        Some(c) if c.is_ascii_hexdigit() => {
+                                            hex.push(c);
+                                        }
+                                        _ => {
+                                            return Token::Error(format!(
+                                                "{start_line}:{start_col} invalid \\u escape (need 4 hex digits)"
+                                            ));
+                                        }
+                                    }
+                                }
+                                let val = u32::from_str_radix(&hex, 16).unwrap();
+                                if (0xD800..=0xDFFF).contains(&val) {
+                                    return Token::Error(format!(
+                                        "{start_line}:{start_col} surrogate unicode escape"
+                                    ));
+                                }
+                                s.push(char::from_u32(val).unwrap());
+                            }
+                        }
+                        Some(c) => {
+                            return Token::Error(format!(
+                                "{start_line}:{start_col} invalid escape sequence: \\{c}"
+                            ));
+                        }
+                        None => {
+                            return Token::Error(format!(
+                                "{start_line}:{start_col} unterminated string"
+                            ));
+                        }
                     }
                 }
                 _ => {
@@ -217,7 +312,11 @@ impl Lexer {
             lines.push(stripped);
         }
 
-        Token::Str(lines.join("\n"))
+        let joined = lines.join("\n");
+        match process_str_escapes(&joined) {
+            Ok(processed) => Token::Str(processed),
+            Err(msg) => Token::Error(format!("{start_line}:{start_col} {msg}")),
+        }
     }
 
     fn lex_number(&mut self) -> Token {
@@ -241,8 +340,10 @@ impl Lexer {
             }
             self.after_value_start = false;
             let trimmed = s.trim_end().to_string();
-            if let Ok(n) = trimmed.parse::<f64>() {
-                return Token::Number(n);
+            if is_spine_number(&trimmed) {
+                if let Ok(n) = trimmed.parse::<f64>() {
+                    return Token::Number(n);
+                }
             }
             return Token::Str(trimmed);
         }
@@ -261,7 +362,11 @@ impl Lexer {
             return Token::Str(s);
         }
 
-        Token::Number(s.parse().unwrap_or(0.0))
+        if is_spine_number(&s) {
+            Token::Number(s.parse().unwrap_or(0.0))
+        } else {
+            Token::Str(s)
+        }
     }
 
     fn lex_ident_or_keyword(&mut self) -> Token {
@@ -277,53 +382,44 @@ impl Lexer {
 
         if self.peek() == Some('"') {
             self.advance();
-            let mut content = String::new();
-            while let Some(c) = self.peek() {
-                if c == '"' {
-                    self.advance();
-                    break;
-                }
-                content.push(c);
-                self.advance();
-            }
+            let content = self.read_tagged_content();
             return Token::Tagged(s, content);
         }
 
-        if self.peek() == Some('.')
-            && let Some(&next) = self.input.get(self.pos + 1)
-            && next.is_alphabetic()
-        {
-            let mut lookahead = self.pos + 1;
-            while let Some(&c) = self.input.get(lookahead) {
-                if c.is_alphanumeric() || c == '_' || c == '-' {
-                    lookahead += 1;
-                } else {
+        if self.peek() == Some('.') {
+            let mut scan = self.pos;
+            let mut found_tag_literal = false;
+            while let Some(&sc) = self.input.get(scan) {
+                if sc == '"' {
+                    found_tag_literal = true;
                     break;
                 }
+                if sc == '\n' || sc == '#' {
+                    break;
+                }
+                scan += 1;
             }
-            if self.input.get(lookahead) == Some(&'"') {
-                self.advance();
-                let mut tag_suffix = String::new();
-                while let Some(c) = self.peek() {
-                    if c.is_alphanumeric() || c == '_' || c == '-' {
-                        tag_suffix.push(c);
+            if found_tag_literal {
+                let tag_segment: String =
+                    self.input[self.pos..scan].iter().copied().collect();
+                let is_valid = tag_segment.starts_with('.')
+                    && tag_segment[1..].split('.').all(|part| {
+                        !part.is_empty()
+                            && part.chars().next().is_some_and(|c| c.is_alphabetic())
+                            && part.chars().all(|c| {
+                                c.is_alphanumeric() || c == '_' || c == '-'
+                            })
+                    });
+                if is_valid {
+                    let tag_suffix = &tag_segment[1..];
+                    let full_tag = format!("{s}.{tag_suffix}");
+                    while self.pos < scan {
                         self.advance();
-                    } else {
-                        break;
                     }
-                }
-                let full_tag = format!("{s}.{tag_suffix}");
-                self.advance();
-                let mut content = String::new();
-                while let Some(c) = self.peek() {
-                    if c == '"' {
-                        self.advance();
-                        break;
-                    }
-                    content.push(c);
                     self.advance();
+                    let content = self.read_tagged_content();
+                    return Token::Tagged(full_tag, content);
                 }
-                return Token::Tagged(full_tag, content);
             }
         }
 
@@ -336,7 +432,13 @@ impl Lexer {
                 self.advance();
             }
             self.after_value_start = false;
-            return Token::Str(s.trim_end().to_string());
+            let trimmed = s.trim_end().to_string();
+            if is_spine_number(&trimmed) {
+                if let Ok(n) = trimmed.parse::<f64>() {
+                    return Token::Number(n);
+                }
+            }
+            return Token::Str(trimmed);
         }
 
         match s.as_str() {
@@ -344,6 +446,53 @@ impl Lexer {
             "false" => Token::Bool(false),
             "null" => Token::Null,
             _ => Token::Ident(s),
+        }
+    }
+
+    fn read_tagged_content(&mut self) -> String {
+        let mut content = String::new();
+        while let Some(c) = self.peek() {
+            match c {
+                '"' => {
+                    self.advance();
+                    break;
+                }
+                '\\' => {
+                    self.advance();
+                    match self.advance() {
+                        Some('n') => content.push('\n'),
+                        Some('t') => content.push('\t'),
+                        Some('r') => content.push('\r'),
+                        Some('0') => content.push('\0'),
+                        Some('\\') => content.push('\\'),
+                        Some('"') => content.push('"'),
+                        _ => {}
+                    }
+                }
+                _ => {
+                    content.push(c);
+                    self.advance();
+                }
+            }
+        }
+        content
+    }
+
+    fn consume_bare_value(&mut self) -> Token {
+        let mut s = String::new();
+        while let Some(c) = self.peek() {
+            if c == '\n' || c == '#' {
+                break;
+            }
+            s.push(c);
+            self.advance();
+        }
+        self.after_value_start = false;
+        let trimmed = s.trim_end().to_string();
+        if is_spine_number(&trimmed) && trimmed.parse::<f64>().is_ok() {
+            Token::Number(trimmed.parse().unwrap())
+        } else {
+            Token::Str(trimmed)
         }
     }
 
@@ -418,8 +567,12 @@ impl Lexer {
                     }
                 }
                 '.' => {
-                    tokens.push((Token::Dot, line, col));
-                    self.advance();
+                    if self.after_value_start {
+                        tokens.push((self.consume_bare_value(), line, col));
+                    } else {
+                        tokens.push((Token::Dot, line, col));
+                        self.advance();
+                    }
                 }
                 '#' => tokens.push((self.skip_line_comment(), line, col)),
                 '/' => {
@@ -435,15 +588,119 @@ impl Lexer {
                     tokens.push((self.lex_ident_or_keyword(), line, col));
                 }
                 _ => {
-                    let c = self.peek().unwrap();
-                    self.advance();
-                    tokens.push((Token::Unknown(c), line, col));
+                    if self.after_value_start {
+                        tokens.push((self.consume_bare_value(), line, col));
+                    } else {
+                        let c = self.peek().unwrap();
+                        self.advance();
+                        tokens.push((Token::Unknown(c), line, col));
+                    }
                 }
             }
         }
 
         tokens
     }
+}
+
+fn is_spine_number(s: &str) -> bool {
+    // Number grammar: ['-'] digit { digit } [ '.' digit { digit } ]
+    let bytes = s.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let mut i = 0;
+    if bytes[i] == b'-' {
+        i += 1;
+    }
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+            return false;
+        }
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    i == bytes.len()
+}
+
+fn process_str_escapes(s: &str) -> Result<String, String> {
+    let mut result = String::with_capacity(s.len());
+    let mut it = s.chars();
+    while let Some(c) = it.next() {
+        if c != '\\' {
+            result.push(c);
+            continue;
+        }
+        match it.next() {
+            Some('n') => result.push('\n'),
+            Some('r') => result.push('\r'),
+            Some('t') => result.push('\t'),
+            Some('0') => result.push('\0'),
+            Some('\\') => result.push('\\'),
+            Some('"') => result.push('"'),
+            Some('x') => {
+                let (h1, h2) = (it.next(), it.next());
+                match (h1, h2) {
+                    (Some(h1), Some(h2))
+                        if h1.is_ascii_hexdigit() && h2.is_ascii_hexdigit() =>
+                    {
+                        let val =
+                            (h1.to_digit(16).unwrap() << 4) | h2.to_digit(16).unwrap();
+                        result.push(char::from_u32(val).unwrap());
+                    }
+                    _ => return Err("invalid \\x escape".into()),
+                }
+            }
+            Some('u') => {
+                if it.as_str().starts_with('{') {
+                    it.next();
+                    let mut hex = String::new();
+                    loop {
+                        match it.next() {
+                            Some('}') => break,
+                            Some(c) if c.is_ascii_hexdigit() => hex.push(c),
+                            _ => return Err("invalid \\u{} escape".into()),
+                        }
+                    }
+                    if hex.is_empty() {
+                        return Err("empty \\u{} escape".into());
+                    }
+                    let val = u32::from_str_radix(&hex, 16).unwrap();
+                    if val > 0x10FFFF {
+                        return Err("unicode escape out of range".into());
+                    }
+                    if (0xD800..=0xDFFF).contains(&val) {
+                        return Err("surrogate unicode escape".into());
+                    }
+                    result.push(char::from_u32(val).unwrap());
+                } else {
+                    let mut hex = String::with_capacity(4);
+                    for _ in 0..4 {
+                        match it.next() {
+                            Some(c) if c.is_ascii_hexdigit() => hex.push(c),
+                            _ => return Err("invalid \\u escape (need 4 hex digits)".into()),
+                        }
+                    }
+                    let val = u32::from_str_radix(&hex, 16).unwrap();
+                    if (0xD800..=0xDFFF).contains(&val) {
+                        return Err("surrogate unicode escape".into());
+                    }
+                    result.push(char::from_u32(val).unwrap());
+                }
+            }
+            Some(c) => return Err(format!("invalid escape sequence: \\{c}")),
+            None => return Err("unterminated escape at end of string".into()),
+        }
+    }
+    Ok(result)
 }
 
 fn strip_leading_pipes(line: &str, depth: usize) -> String {

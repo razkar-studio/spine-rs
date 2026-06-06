@@ -459,6 +459,109 @@ fn test_parse_to_json_bools() {
     assert!(json.contains("null"));
 }
 
+// ── Additional edge cases ──
+
+#[test]
+fn test_value_type_tagged() {
+    let doc = Document::from_str_or_panic("c = date\"2026-01-01\"\n");
+    let v = doc.root().unwrap().get("c").unwrap();
+    assert_eq!(v.value_type(), ValueType::Tagged);
+}
+
+#[test]
+fn test_value_type_null() {
+    let doc = Document::from_str_or_panic("arr\n| -\n| -\n");
+    let arr = doc.root().unwrap().get("arr").unwrap();
+    assert_eq!(arr.get_index(0).unwrap().value_type(), ValueType::Null);
+}
+
+#[test]
+fn test_is_empty_on_scalar() {
+    let doc = Document::from_str_or_panic("s = hello\n");
+    let s = doc.root().unwrap().get("s").unwrap();
+    assert!(s.is_empty());
+}
+
+#[test]
+fn test_is_empty_on_array() {
+    let doc = Document::from_str_or_panic("a\n| - x\n");
+    let a = doc.root().unwrap().get("a").unwrap();
+    assert!(!a.is_empty());
+}
+
+#[test]
+fn test_is_empty_on_object() {
+    let doc = Document::from_str_or_panic("o\n| k = v\n");
+    let o = doc.root().unwrap().get("o").unwrap();
+    assert!(!o.is_empty());
+}
+
+#[test]
+fn test_nested_dotted_access() {
+    let src = "a.b.c = deep\n";
+    let doc = Document::from_str_or_panic(src);
+    let root = doc.root().unwrap();
+    let c = root.get("a").unwrap().get("b").unwrap().get("c").unwrap();
+    assert_eq!(c.as_str().unwrap(), "deep");
+}
+
+#[test]
+fn test_append_multiple_via_wrapper() {
+    let src = "~items\n| n = first\n~items\n| n = second\n~items\n| n = third\n";
+    let doc = Document::from_str_or_panic(src);
+    let items = doc.root().unwrap().get("items").unwrap();
+    assert_eq!(items.len(), 3);
+    assert_eq!(
+        items.get_index(0).unwrap().get("n").unwrap().as_str().unwrap(),
+        "first"
+    );
+    assert_eq!(
+        items.get_index(2).unwrap().get("n").unwrap().as_str().unwrap(),
+        "third"
+    );
+}
+
+#[test]
+fn test_object_merge_duplicate_objects() {
+    let src = "obj\n| a = 1\nobj\n| b = 2\n";
+    let doc = Document::from_str_or_panic(src);
+    let obj = doc.root().unwrap().get("obj").unwrap();
+    assert_eq!(obj.len(), 2);
+    assert_eq!(obj.get("a").unwrap().as_f64().unwrap(), 1.0);
+    assert_eq!(obj.get("b").unwrap().as_f64().unwrap(), 2.0);
+}
+
+#[test]
+fn test_key_at_on_root() {
+    let doc = Document::from_str_or_panic("z = 1\na = 2\n");
+    assert_eq!(doc.root().unwrap().key_at(0).unwrap(), "z");
+    assert_eq!(doc.root().unwrap().key_at(1).unwrap(), "a");
+}
+
+#[test]
+fn test_dotted_path_wrapper() {
+    let src = "a.b.c\n| d = val\n";
+    let doc = Document::from_str_or_panic(src);
+    let val = doc.root().unwrap().get("a").unwrap()
+        .get("b").unwrap()
+        .get("c").unwrap()
+        .get("d").unwrap();
+    assert_eq!(val.as_str().unwrap(), "val");
+}
+
+#[test]
+fn test_empty_quoted_string_value() {
+    let doc = Document::from_str_or_panic("e = \"\"\n");
+    assert_eq!(doc.root().unwrap().get("e").unwrap().as_str().unwrap(), "");
+}
+
+#[test]
+fn test_doc_root_on_empty_document() {
+    let doc = Document::from_str_or_panic("");
+    assert!(doc.root().is_some());
+    assert_eq!(doc.root().unwrap().len(), 0);
+}
+
 // ── Mixed / integration ──
 
 #[test]

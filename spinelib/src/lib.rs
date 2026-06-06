@@ -21,7 +21,7 @@ pub struct FormatDetails {
 pub fn format_details() -> FormatDetails {
     FormatDetails {
         version: env!("CARGO_PKG_VERSION").to_string(),
-        spec: "1.0-rc.1".to_string(),
+        spec: "1.0-rc.2".to_string(),
         backend: "native".to_string(),
     }
 }
@@ -40,7 +40,7 @@ pub fn parse_to_json(input: &str) -> String {
     write_json_str("version", &mut json);
     json.push_str(":\"0.1.0\",");
     write_json_str("spec", &mut json);
-    json.push_str(":\"1.0-rc.1\",");
+    json.push_str(":\"1.0-rc.2\",");
     write_json_str("backend", &mut json);
     json.push_str(":\"native\"");
 

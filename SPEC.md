@@ -1,6 +1,6 @@
 # Spine Language Specification v1.0
 
-> **Status:** RELEASE CANDIDATE 1  
+> **Status:** RELEASE CANDIDATE 2
 > **Version:** 1.0
 > **Encoding:** UTF-8
 > **File extension:** `.spn`
@@ -141,12 +141,25 @@ These rules ensure that in a key–value pair the value never needs quoting, whi
 
 Inside `"..."` and `"""..."""` strings, the following escape sequences are recognized:
 
-| Sequence | Meaning |
-|----------|---------|
-| `\n` | Newline (U+000A) |
-| `\t` | Tab (U+0009) |
-| `\\` | Backslash (U+005C) |
-| `\"` | Double quote (U+0022) |
+| Sequence   | Meaning                                                 |
+| ---------- | ------------------------------------------------------- |
+| `\n`       | Newline (U+000A)                                        |
+| `\t`       | Horizontal tab (U+0009)                                 |
+| `\r`       | Carriage return (U+000D)                                |
+| `\0`       | Null character (U+0000)                                 |
+| `\\`       | Backslash (U+005C)                                      |
+| `\"`       | Double quote (U+0022)                                   |
+| `\xNN`     | Character with hexadecimal value `NN` (00–FF)           |
+| `\uXXXX`   | Unicode scalar value with hexadecimal code point `XXXX` |
+| `\u{X...}` | Unicode scalar value with hexadecimal code point `X...` |
+
+For `\xNN`, `NN` must consist of exactly two hexadecimal digits (`0-9`, `A-F`, `a-f`).
+
+For `\uXXXX`, `XXXX` must consist of exactly four hexadecimal digits (`0-9`, `A-F`, `a-f`).
+
+For `\u{X...}`, the braces must contain one or more hexadecimal digits (`0-9`, `A-F`, `a-f`) representing a Unicode scalar value.
+
+Unicode escape sequences must resolve to a valid Unicode scalar value. Values outside the Unicode range or within the surrogate range (`U+D800`–`U+DFFF`) are a lexical error.
 
 Any other character following a backslash is a lexical error.
 
