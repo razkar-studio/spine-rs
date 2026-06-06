@@ -7,6 +7,10 @@ impl Value {
         Self { inner }
     }
 
+    pub(crate) fn into_inner(self) -> spine_rs::Value {
+        self.inner
+    }
+
     #[must_use]
     pub fn value_type(&self) -> ValueType {
         match self.inner {

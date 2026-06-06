@@ -67,14 +67,18 @@ fn test_non_ascii_in_quoted_string_preserved() {
 }
 
 #[test]
-fn test_non_ascii_in_identifier_should_be_error() {
-    // Per §2.5, identifiers are [A-Za-z_] only; non-ASCII is not valid.
-    // The lexer currently accepts non-ASCII via is_alphabetic() → known gap.
+fn test_unicode_identifier_as_key() {
     let src = "héllo = 1\n";
-    let tokens = Lexer::new(src).tokenize();
-    // Per spec: should emit Unknown. Currently emits Ident("héllo").
-    let has_ident = tokens.iter().any(|(t, _, _)| matches!(t, Token::Ident(_)));
-    assert!(has_ident, "parser accepts non-ASCII identifiers (known gap), tokens: {tokens:?}");
+    let value = parse_ok(src);
+    assert_eq!(get_value(&value, &["héllo"]), Value::Number(1.0));
+}
+
+#[test]
+fn test_unicode_identifier_with_digits_and_hyphens() {
+    let src = "réseau-3 = val\nüber-42 = val\n";
+    let value = parse_ok(src);
+    assert_eq!(get_value(&value, &["réseau-3"]), Value::String("val".into()));
+    assert_eq!(get_value(&value, &["über-42"]), Value::String("val".into()));
 }
 
 // ============================================================================
@@ -609,12 +613,11 @@ fn test_invalid_number_underscore_is_string() {
 // ============================================================================
 
 #[test]
-fn test_null_keyword_as_value_not_recognized() {
-    // Per spec §2.6, bare-value state consumes `null` as a string.
-    // The keyword is recognized only outside bare-value context.
+fn test_null_as_value() {
+    // §3.1: `null` is the Null value in bare-value context.
     let src = "n = null\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["n"]), Value::String("null".into()));
+    assert_eq!(get_value(&value, &["n"]), Value::Null);
 }
 
 // `null`, `true`, `false` are keywords and cannot be used as key names (§2.5).
@@ -633,21 +636,20 @@ fn test_array_empty_dash_produces_null() {
 // ============================================================================
 
 #[test]
-fn test_bool_as_bare_string() {
-    // Per spec §2.6, bare-value state consumes `true`/`false` as strings.
+fn test_bool_as_bare_value() {
+    // §3.2: `true`/`false` are Bool values in bare-value context.
     let src = "a = true\nb = false\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["a"]), Value::String("true".into()));
-    assert_eq!(get_value(&value, &["b"]), Value::String("false".into()));
+    assert_eq!(get_value(&value, &["a"]), Value::Bool(true));
+    assert_eq!(get_value(&value, &["b"]), Value::Bool(false));
 }
 
 #[test]
 fn test_bool_in_value_position() {
-    // Used as values after `=`, `true`/`false` are bare strings per §2.6.
     let src = "a = true\nb = false\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["a"]), Value::String("true".into()));
-    assert_eq!(get_value(&value, &["b"]), Value::String("false".into()));
+    assert_eq!(get_value(&value, &["a"]), Value::Bool(true));
+    assert_eq!(get_value(&value, &["b"]), Value::Bool(false));
 }
 
 // ============================================================================
@@ -873,8 +875,8 @@ fn test_multiple_key_values() {
 fn test_key_value_all_types() {
     let src = "a = null\nb = true\nc = 42\nd = hello\ne = \"quoted\"\nf = tag\"content\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["a"]), Value::String("null".into()));
-    assert_eq!(get_value(&value, &["b"]), Value::String("true".into()));
+    assert_eq!(get_value(&value, &["a"]), Value::Null);
+    assert_eq!(get_value(&value, &["b"]), Value::Bool(true));
     assert_eq!(get_value(&value, &["c"]), Value::Number(42.0));
     assert_eq!(get_value(&value, &["d"]), Value::String("hello".into()));
     assert_eq!(get_value(&value, &["e"]), Value::String("quoted".into()));
@@ -1015,13 +1017,12 @@ fn test_array_objects() {
         _ => panic!("expected object"),
     };
     assert!(first.iter().any(|(k, v)| k == "name" && v == &Value::String("new-ui".into())));
-    assert!(first.iter().any(|(k, v)| k == "enabled" && v == &Value::String("true".into())));
+    assert!(first.iter().any(|(k, v)| k == "enabled" && v == &Value::Bool(true)));
     let second = match &arr[1] {
         Value::Object(fields) => fields,
         _ => panic!("expected object"),
     };
-    assert!(second.iter().any(|(k, v)| k == "name" && v == &Value::String("dark-mode".into())));
-    assert!(second.iter().any(|(k, v)| k == "enabled" && v == &Value::String("false".into())));
+    assert!(second.iter().any(|(k, v)| k == "enabled" && v == &Value::Bool(false)));
 }
 
 #[test]

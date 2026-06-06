@@ -1,10 +1,16 @@
 use std::fmt::Write;
 
+mod de;
 mod document;
+mod ser;
 mod value;
+mod writer;
 
+pub use de::{DeError, from_document};
 pub use document::Document;
+pub use ser::{SerError, to_document};
 pub use value::{Value, ValueType};
+pub use writer::to_string;
 
 /// Build-time metadata about the parser.
 #[derive(Debug, Clone, PartialEq)]

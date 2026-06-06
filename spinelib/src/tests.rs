@@ -35,21 +35,18 @@ fn test_ffi_dotted_append() {
 
 #[test]
 fn test_value_null() {
-    // Null value in bare-value state (after `=`) is treated as a string
     let doc = Document::from_str_or_panic("n = null\n");
     let n = doc.root().unwrap().get("n").unwrap();
-    assert_eq!(n.value_type(), ValueType::String);
-    assert_eq!(n.as_str(), Some("null".to_string()));
+    assert_eq!(n.value_type(), ValueType::Null);
+    assert_eq!(n.as_f64(), None);
 }
 
 #[test]
 fn test_value_bool() {
-    // Bool values in bare-value state (after `=`) are treated as strings
     let doc = Document::from_str_or_panic("a = true\nb = false\n");
     let root = doc.root().unwrap();
-    assert_eq!(root.get("a").unwrap().as_str(), Some("true".to_string()));
-    assert_eq!(root.get("b").unwrap().as_str(), Some("false".to_string()));
-    assert_eq!(root.get("a").unwrap().value_type(), ValueType::String);
+    assert_eq!(root.get("a").unwrap().value_type(), ValueType::Bool);
+    assert_eq!(root.get("a").unwrap().as_str(), None);
 }
 
 #[test]
@@ -512,11 +509,23 @@ fn test_append_multiple_via_wrapper() {
     let items = doc.root().unwrap().get("items").unwrap();
     assert_eq!(items.len(), 3);
     assert_eq!(
-        items.get_index(0).unwrap().get("n").unwrap().as_str().unwrap(),
+        items
+            .get_index(0)
+            .unwrap()
+            .get("n")
+            .unwrap()
+            .as_str()
+            .unwrap(),
         "first"
     );
     assert_eq!(
-        items.get_index(2).unwrap().get("n").unwrap().as_str().unwrap(),
+        items
+            .get_index(2)
+            .unwrap()
+            .get("n")
+            .unwrap()
+            .as_str()
+            .unwrap(),
         "third"
     );
 }
@@ -542,10 +551,17 @@ fn test_key_at_on_root() {
 fn test_dotted_path_wrapper() {
     let src = "a.b.c\n| d = val\n";
     let doc = Document::from_str_or_panic(src);
-    let val = doc.root().unwrap().get("a").unwrap()
-        .get("b").unwrap()
-        .get("c").unwrap()
-        .get("d").unwrap();
+    let val = doc
+        .root()
+        .unwrap()
+        .get("a")
+        .unwrap()
+        .get("b")
+        .unwrap()
+        .get("c")
+        .unwrap()
+        .get("d")
+        .unwrap();
     assert_eq!(val.as_str().unwrap(), "val");
 }
 
@@ -617,4 +633,80 @@ fn test_parse_to_json_full_example() {
     assert!(json.contains("db.primary.local"));
     assert!(json.contains("std.date"));
     assert!(json.contains("base64"));
+}
+
+// --- serde integration --- //
+
+#[test]
+fn test_serde_basic() {
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct Config {
+        name: String,
+        version: f64,
+        enabled: bool,
+    }
+
+    let doc = crate::Document::from_str_or_panic(
+        r#"
+        name = "odyn"
+        version = 1.0
+        enabled = true
+    "#,
+    );
+
+    let config: Config = crate::from_document(doc).unwrap();
+    assert_eq!(config.name, "odyn");
+    assert_eq!(config.version, 1.0);
+    assert_eq!(config.enabled, true);
+}
+
+#[test]
+fn test_serde_nested() {
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct Lockfile {
+        dep: Vec<Dep>,
+    }
+
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct Dep {
+        name: String,
+        source: String,
+        commit: String,
+    }
+
+    let doc = crate::Document::from_str_or_panic(
+        r#"
+        ~dep
+        | name = odin-http
+        | source = https://github.com/laytan/odin-http
+        | commit = abc123
+    "#,
+    );
+
+    let lockfile: Lockfile = crate::from_document(doc).unwrap();
+    assert_eq!(lockfile.dep.len(), 1);
+    assert_eq!(lockfile.dep[0].name, "odin-http");
+}
+
+#[test]
+fn test_serde_roundtrip() {
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    struct Config {
+        name: String,
+        version: f64,
+        enabled: bool,
+        tags: Vec<String>,
+    }
+
+    let original = Config {
+        name: "odyn".to_string(),
+        version: 1.0,
+        enabled: true,
+        tags: vec!["cli".to_string(), "odin".to_string()],
+    };
+
+    let doc = crate::to_document(&original).unwrap();
+    println!("{}", crate::to_string(&doc.root().unwrap().into_inner()));
+    let result: Config = crate::from_document(doc).unwrap();
+    assert_eq!(original, result);
 }

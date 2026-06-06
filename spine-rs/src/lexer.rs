@@ -340,26 +340,7 @@ impl Lexer {
             }
             self.after_value_start = false;
             let trimmed = s.trim_end().to_string();
-            if is_spine_number(&trimmed) {
-                if let Ok(n) = trimmed.parse::<f64>() {
-                    return Token::Number(n);
-                }
-            }
-            return Token::Str(trimmed);
-        }
-
-        if let Some(c) = self.peek()
-            && c.is_alphabetic()
-        {
-            while let Some(c) = self.peek() {
-                if c.is_alphanumeric() {
-                    s.push(c);
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-            return Token::Str(s);
+            return Self::typed_bare_value(&trimmed);
         }
 
         if is_spine_number(&s) {
@@ -433,12 +414,7 @@ impl Lexer {
             }
             self.after_value_start = false;
             let trimmed = s.trim_end().to_string();
-            if is_spine_number(&trimmed) {
-                if let Ok(n) = trimmed.parse::<f64>() {
-                    return Token::Number(n);
-                }
-            }
-            return Token::Str(trimmed);
+            return Self::typed_bare_value(&trimmed);
         }
 
         match s.as_str() {
@@ -478,6 +454,21 @@ impl Lexer {
         content
     }
 
+    fn typed_bare_value(s: &str) -> Token {
+        if is_spine_number(s) {
+            if let Ok(n) = s.parse::<f64>() {
+                return Token::Number(n);
+            }
+        }
+        match s {
+            "true" => return Token::Bool(true),
+            "false" => return Token::Bool(false),
+            "null" => return Token::Null,
+            _ => {}
+        }
+        Token::Str(s.to_string())
+    }
+
     fn consume_bare_value(&mut self) -> Token {
         let mut s = String::new();
         while let Some(c) = self.peek() {
@@ -489,11 +480,7 @@ impl Lexer {
         }
         self.after_value_start = false;
         let trimmed = s.trim_end().to_string();
-        if is_spine_number(&trimmed) && trimmed.parse::<f64>().is_ok() {
-            Token::Number(trimmed.parse().unwrap())
-        } else {
-            Token::Str(trimmed)
-        }
+        Self::typed_bare_value(&trimmed)
     }
 
     #[allow(clippy::missing_panics_doc)]
@@ -555,11 +542,7 @@ impl Lexer {
                         }
                         self.after_value_start = false;
                         let trimmed = s.trim_end().to_string();
-                        if let Ok(n) = trimmed.parse::<f64>() {
-                            tokens.push((Token::Number(n), line, col));
-                        } else {
-                            tokens.push((Token::Str(trimmed), line, col));
-                        }
+                        tokens.push((Self::typed_bare_value(&trimmed), line, col));
                     } else {
                         tokens.push((Token::Dash, line, col));
                         self.advance();

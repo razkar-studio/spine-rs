@@ -38,6 +38,10 @@ impl Document {
         }
     }
 
+    pub fn from_value(value: spine_rs::Value) -> Self {
+        Self { root: Some(value) }
+    }
+
     #[must_use]
     pub fn from_str_or_panic(input: impl Into<String>) -> Self {
         Self::from_str(input).unwrap_or_else(|errors| {

@@ -1,6 +1,6 @@
 # Spine Language Specification v1.0
 
-> **Status:** RELEASE CANDIDATE 2
+> **Status:** RELEASE CANDIDATE 3
 > **Version:** 1.0
 > **Encoding:** UTF-8
 > **File extension:** `.spn`
@@ -23,7 +23,12 @@ The remainder of this document defines Spine v1.0 in sufficient detail that any 
 
 ### 2.1 Character Set
 
-Spine source text is **UTF-8** encoded. Only the **ASCII subset** (code points U+0020–U+007E) carries syntactic meaning. Non-ASCII Unicode codepoints appearing in comments, string literals, or bare values are preserved verbatim as content but have no syntactic role.
+Spine source text is **UTF-8** encoded. The following characters carry syntactic meaning:
+
+- **ASCII** code points U+0020–U+007E carry syntactic meaning (§2.1).
+- **Unicode letters** (code points for which Rust's `char::is_alphabetic()` returns `true`) also carry syntactic meaning as identifier and bare-value characters.
+
+All other non-ASCII Unicode codepoints appearing in comments, string literals, or bare values are preserved verbatim as content but have no syntactic role.
 
 The following characters are significant:
 
@@ -40,7 +45,7 @@ The following characters are significant:
 | `"` | Double quote | String literal delimiter |
 | `/` | Slash | Block comment start (when followed by `*`) |
 
-All other ASCII printable characters are valid in bare strings and identifiers unless otherwise specified.
+All other ASCII printable characters, as well as Unicode letters (per Rust's `char::is_alphabetic()`), are valid in bare strings and identifiers unless otherwise specified.
 
 ### 2.2 Whitespace and Newlines
 
@@ -98,10 +103,12 @@ The lexer produces the following token types:
 
 ### 2.5 Identifiers
 
-An identifier starts with an ASCII letter (`A–Z`, `a–z`) or underscore (`_`), followed by zero or more ASCII letters, digits (`0–9`), underscores, or hyphens (`-`).
+An identifier starts with an underscore (`_`) or any character for which Rust's `char::is_alphabetic()` returns `true` (which includes ASCII letters `A–Z`, `a–z` and Unicode letters such as `é`, `ñ`, `β`, `あ`, etc.). This is followed by zero or more identifier-continuation characters: underscores, hyphens, any alphabetic character (per `is_alphabetic()`), or any ASCII digit (`0–9`).
 
 ```
-identifier ::= [A-Za-z_] [A-Za-z0-9_-]*
+identifier ::= id-start { id-continue }
+id-start    ::= '_' | ? char::is_alphabetic() ?
+id-continue ::= id-start | '-' | ? char::is_ascii_digit() ?
 ```
 
 The hyphen is permitted inside identifiers to support common naming patterns such as `scram-sha-256` or `eu-central-1` when they appear as **keys** (not bare values). An identifier that is also a keyword (`true`, `false`, `null`) is recognized as that keyword.
@@ -593,8 +600,9 @@ tagged-value   = qualified-ident quoted-string
 qualified-ident = identifier { '.' identifier }
 
 (* -- Identifiers -- *)
-identifier     = letter { letter | digit | '_' | '-' }
-letter         = 'A' | ... | 'Z' | 'a' | ... | 'z'
+identifier     = id-start { id-continue }
+id-start       = '_' | ? char::is_alphabetic() ?
+id-continue    = id-start | '-' | ? char::is_ascii_digit() ?
 
 (* -- Indentation -- *)
 pipe           = '|'
