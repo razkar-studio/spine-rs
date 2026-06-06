@@ -42,6 +42,12 @@ impl Document {
         Self { root: Some(value) }
     }
 
+    pub fn to_string(&self) -> Option<String> {
+        self.root
+            .as_ref()
+            .map(|v| crate::writer::to_string_inner(v))
+    }
+
     #[must_use]
     pub fn from_str_or_panic(input: impl Into<String>) -> Self {
         Self::from_str(input).unwrap_or_else(|errors| {

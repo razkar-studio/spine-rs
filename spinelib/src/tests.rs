@@ -706,7 +706,7 @@ fn test_serde_roundtrip() {
     };
 
     let doc = crate::to_document(&original).unwrap();
-    println!("{}", crate::to_string(&doc.root().unwrap().into_inner()));
+    println!("{}", doc.to_string().unwrap());
     let result: Config = crate::from_document(doc).unwrap();
     assert_eq!(original, result);
 }

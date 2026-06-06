@@ -1,4 +1,4 @@
-pub fn to_string(value: &spine_rs::Value) -> String {
+pub(crate) fn to_string_inner(value: &spine_rs::Value) -> String {
     let mut buf = String::new();
     match value {
         spine_rs::Value::Object(fields) => {
