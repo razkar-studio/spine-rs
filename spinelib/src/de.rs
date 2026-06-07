@@ -2,8 +2,10 @@ use serde::Deserialize;
 
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 
+/// Errors that can occur during Spine deserialization.
 #[derive(Debug)]
 pub enum DeError {
+    /// A custom error message.
     Custom(String),
 }
 
@@ -23,17 +25,26 @@ impl de::Error for DeError {
     }
 }
 
+/// Deserializer for Spine values.
 pub struct Deserializer {
     value: spine_rs::Value,
 }
 
 impl Deserializer {
+    /// Creates a new deserializer from a `spine_rs::Value`.
+    #[must_use]
     pub fn from_value(value: spine_rs::Value) -> Self {
         Self { value }
     }
 }
 
-pub fn from_document<T: for<'de> Deserialize<'de>>(doc: crate::Document) -> Result<T, DeError> {
+/// Deserializes a Spine `Document` into a Rust type.
+///
+/// # Errors
+///
+/// Returns `DeError` if the document is empty or the value cannot be
+/// deserialized into the target type.
+pub fn from_document<T: for<'de> Deserialize<'de>>(doc: &crate::Document) -> Result<T, DeError> {
     let value = doc.root().ok_or(DeError::Custom("empty document".into()))?;
     let de = Deserializer::from_value(value.into_inner());
     T::deserialize(de)
@@ -48,7 +59,7 @@ impl<'de> serde::Deserializer<'de> for Deserializer {
             spine_rs::Value::Bool(b) => visitor.visit_bool(b),
             spine_rs::Value::Number(n) => visitor.visit_f64(n),
             spine_rs::Value::String(s) => visitor.visit_string(s),
-            spine_rs::Value::Tagged(_, content) => visitor.visit_string(content), // TODO: FromTagged dispatch
+            spine_rs::Value::Tagged(_, content) => visitor.visit_string(content),
             spine_rs::Value::Array(arr) => visitor.visit_seq(SeqDeserializer::new(arr)),
             spine_rs::Value::Object(fields) => visitor.visit_map(MapDeserializer::new(fields)),
         }

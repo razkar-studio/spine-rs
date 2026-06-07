@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant)]
+
 use crate::{Lexer, Parser, Token, Value};
 use std::{fs, path::PathBuf, str::FromStr};
 
@@ -17,7 +19,10 @@ fn test_blank_lines_ignored() {
 fn test_leading_whitespace_before_pipes() {
     let src = "obj\n  | key = val\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["obj", "key"]), Value::String("val".into()));
+    assert_eq!(
+        get_value(&value, &["obj", "key"]),
+        Value::String("val".into())
+    );
 }
 
 #[test]
@@ -31,7 +36,10 @@ fn test_tabs_as_whitespace() {
 fn test_no_final_newline() {
     let src = "host = localhost";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["host"]), Value::String("localhost".into()));
+    assert_eq!(
+        get_value(&value, &["host"]),
+        Value::String("localhost".into())
+    );
 }
 
 #[test]
@@ -45,7 +53,10 @@ fn test_final_newline_optional_blank_lines() {
 fn test_whitespace_significant_inside_values() {
     let src = "key =   spaced value  \n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("spaced value".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("spaced value".into())
+    );
 }
 
 // ============================================================================
@@ -56,14 +67,20 @@ fn test_whitespace_significant_inside_values() {
 fn test_non_ascii_in_bare_value_preserved() {
     let src = "greeting = café\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["greeting"]), Value::String("caf\u{e9}".into()));
+    assert_eq!(
+        get_value(&value, &["greeting"]),
+        Value::String("caf\u{e9}".into())
+    );
 }
 
 #[test]
 fn test_non_ascii_in_quoted_string_preserved() {
     let src = "greeting = \"café\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["greeting"]), Value::String("caf\u{e9}".into()));
+    assert_eq!(
+        get_value(&value, &["greeting"]),
+        Value::String("caf\u{e9}".into())
+    );
 }
 
 #[test]
@@ -77,7 +94,10 @@ fn test_unicode_identifier_as_key() {
 fn test_unicode_identifier_with_digits_and_hyphens() {
     let src = "réseau-3 = val\nüber-42 = val\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["réseau-3"]), Value::String("val".into()));
+    assert_eq!(
+        get_value(&value, &["réseau-3"]),
+        Value::String("val".into())
+    );
     assert_eq!(get_value(&value, &["über-42"]), Value::String("val".into()));
 }
 
@@ -96,7 +116,10 @@ fn test_carriage_return_in_bare_value() {
 fn test_carriage_return_in_quoted_string() {
     let src = "key = \"hello\rworld\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("hello\rworld".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("hello\rworld".into())
+    );
 }
 
 // ============================================================================
@@ -170,7 +193,10 @@ fn test_empty_block_comment() {
 fn test_block_comment_start_inside_quoted_string_is_literal() {
     let src = "key = \"/* not a comment */\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("/* not a comment */".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("/* not a comment */".into())
+    );
 }
 
 #[test]
@@ -191,14 +217,20 @@ fn test_unterminated_block_comment() {
 fn test_identifier_with_hyphens() {
     let src = "scram-sha-256 = value\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["scram-sha-256"]), Value::String("value".into()));
+    assert_eq!(
+        get_value(&value, &["scram-sha-256"]),
+        Value::String("value".into())
+    );
 }
 
 #[test]
 fn test_identifier_with_underscore_start() {
     let src = "_private = val\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["_private"]), Value::String("val".into()));
+    assert_eq!(
+        get_value(&value, &["_private"]),
+        Value::String("val".into())
+    );
 }
 
 #[test]
@@ -221,7 +253,10 @@ fn test_identifier_with_digits() {
     let src = "zone9 = value\nregion-1a = value\n";
     let value = parse_ok(src);
     assert_eq!(get_value(&value, &["zone9"]), Value::String("value".into()));
-    assert_eq!(get_value(&value, &["region-1a"]), Value::String("value".into()));
+    assert_eq!(
+        get_value(&value, &["region-1a"]),
+        Value::String("value".into())
+    );
 }
 
 // ============================================================================
@@ -261,7 +296,10 @@ fn test_bare_value_decimal() {
 fn test_bare_value_string() {
     let src = "host = localhost\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["host"]), Value::String("localhost".into()));
+    assert_eq!(
+        get_value(&value, &["host"]),
+        Value::String("localhost".into())
+    );
 }
 
 #[test]
@@ -340,28 +378,40 @@ fn test_bare_value_after_dash_in_array() {
 fn test_escape_newline() {
     let src = "key = \"line1\\nline2\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("line1\nline2".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("line1\nline2".into())
+    );
 }
 
 #[test]
 fn test_escape_tab() {
     let src = "key = \"col1\\tcol2\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("col1\tcol2".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("col1\tcol2".into())
+    );
 }
 
 #[test]
 fn test_escape_backslash() {
     let src = "key = \"path\\\\to\\\\file\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("path\\to\\file".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("path\\to\\file".into())
+    );
 }
 
 #[test]
 fn test_escape_quote() {
     let src = "key = \"she said \\\"hello\\\"\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("she said \"hello\"".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("she said \"hello\"".into())
+    );
 }
 
 #[test]
@@ -369,8 +419,14 @@ fn test_escape_sequence_in_multi_line_string() {
     let src = "key = \"\"\"\n| tab\\there\n| quote\\\"here\n| \"\"\"\n";
     let value = parse_ok(src);
     let s = get_str(&value, &["key"]);
-    assert!(s.contains("tab\there"), "expected tab in multiline, got: {s:?}");
-    assert!(s.contains("quote\"here"), "expected quote in multiline, got: {s:?}");
+    assert!(
+        s.contains("tab\there"),
+        "expected tab in multiline, got: {s:?}"
+    );
+    assert!(
+        s.contains("quote\"here"),
+        "expected quote in multiline, got: {s:?}"
+    );
 }
 
 // ============================================================================
@@ -382,7 +438,10 @@ fn test_escape_carriage_return() {
     // RC2: \r → carriage return
     let src = "key = \"line1\\rline2\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("line1\rline2".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("line1\rline2".into())
+    );
 }
 
 #[test]
@@ -390,7 +449,10 @@ fn test_escape_null() {
     // RC2: \0 → null character
     let src = "key = \"null\\0char\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("null\0char".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("null\0char".into())
+    );
 }
 
 #[test]
@@ -438,7 +500,10 @@ fn test_escape_unicode_4digit_emoji() {
     // RC2: \uXXXX for non-ASCII
     let src = "key = \"\\u00e9\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("\u{00E9}".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("\u{00E9}".into())
+    );
 }
 
 #[test]
@@ -454,7 +519,10 @@ fn test_escape_unicode_braced_multi_digit() {
     // RC2: \u{X...} with multiple hex digits
     let src = "key = \"\\u{1F600}\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("\u{1F600}".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("\u{1F600}".into())
+    );
 }
 
 #[test]
@@ -462,7 +530,10 @@ fn test_escape_unicode_braced_max() {
     // RC2: \u{10FFFF} → max Unicode scalar
     let src = "key = \"\\u{10ffff}\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("\u{10FFFF}".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("\u{10FFFF}".into())
+    );
 }
 
 // ============================================================================
@@ -475,7 +546,10 @@ fn test_escape_hex_invalid_digit_is_error() {
     let src = "key = \"\\xGG\"\n";
     let tokens = Lexer::new(src).tokenize();
     let has_lex_error = tokens.iter().any(|(t, _, _)| matches!(t, Token::Error(_)));
-    assert!(has_lex_error, "\\xGG should produce lex error per §2.7, tokens: {tokens:?}");
+    assert!(
+        has_lex_error,
+        "\\xGG should produce lex error per §2.7, tokens: {tokens:?}"
+    );
 }
 
 #[test]
@@ -484,7 +558,10 @@ fn test_escape_hex_one_digit_is_error() {
     let src = "key = \"\\x4\"\n";
     let tokens = Lexer::new(src).tokenize();
     let has_lex_error = tokens.iter().any(|(t, _, _)| matches!(t, Token::Error(_)));
-    assert!(has_lex_error, "\\x4 should produce lex error per §2.7, tokens: {tokens:?}");
+    assert!(
+        has_lex_error,
+        "\\x4 should produce lex error per §2.7, tokens: {tokens:?}"
+    );
 }
 
 #[test]
@@ -547,7 +624,10 @@ fn test_bad_escape_sequence_is_lex_error() {
     let tokens = Lexer::new(src).tokenize();
     // Per spec: should contain an Error token
     let has_lex_error = tokens.iter().any(|(t, _, _)| matches!(t, Token::Error(_)));
-    assert!(has_lex_error, "\\z should produce lex error per §2.7, tokens: {tokens:?}");
+    assert!(
+        has_lex_error,
+        "\\z should produce lex error per §2.7, tokens: {tokens:?}"
+    );
 }
 
 #[test]
@@ -569,8 +649,14 @@ fn test_leading_dot_in_bare_value() {
     let tokens = Lexer::new(src).tokenize();
     // Per spec: `.` should be consumed by bare-value mode → one Str(".5") token
     // The lexer incorrectly tokenizes Dot separately
-    let dot_count = tokens.iter().filter(|(t, _, _)| matches!(t, Token::Dot)).count();
-    assert_eq!(dot_count, 0, "`.` after `=` should be consumed as bare value per §2.6, tokens: {tokens:?}");
+    let dot_count = tokens
+        .iter()
+        .filter(|(t, _, _)| matches!(t, Token::Dot))
+        .count();
+    assert_eq!(
+        dot_count, 0,
+        "`.` after `=` should be consumed as bare value per §2.6, tokens: {tokens:?}"
+    );
 }
 
 // §3.3 Number grammar: only '-' prefix, no '+'
@@ -581,15 +667,24 @@ fn test_plus_in_bare_value_should_be_valid() {
     let tokens = Lexer::new(src).tokenize();
     // Per spec: '+' is a valid bare-value character (§2.1) → should be part of Str.
     // The lexer currently emits Unknown('+'), which is a bug.
-    let has_plus_unknown = tokens.iter().any(|(t, _, _)| matches!(t, Token::Unknown('+')));
-    assert!(!has_plus_unknown, "'+' should not be Unknown per §2.1, tokens: {tokens:?}");
+    let has_plus_unknown = tokens
+        .iter()
+        .any(|(t, _, _)| matches!(t, Token::Unknown('+')));
+    assert!(
+        !has_plus_unknown,
+        "'+' should not be Unknown per §2.1, tokens: {tokens:?}"
+    );
     // When fixed, the bare value "+1" should be Str (doesn't match Number grammar)
     // For now this test documents the lexer bug.
     let value_str = tokens.iter().find_map(|(t, _, _)| match t {
         Token::Str(s) => Some(s.clone()),
         _ => None,
     });
-    assert_eq!(value_str, Some("+1".into()), "should produce Str(\"+1\"), tokens: {tokens:?}");
+    assert_eq!(
+        value_str,
+        Some("+1".into()),
+        "should produce Str(\"+1\"), tokens: {tokens:?}"
+    );
 }
 
 #[test]
@@ -710,7 +805,7 @@ fn test_number_in_array() {
 fn test_empty_quoted_string() {
     let src = "key = \"\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("".into()));
+    assert_eq!(get_value(&value, &["key"]), Value::String(String::new()));
 }
 
 #[test]
@@ -724,14 +819,20 @@ fn test_quoted_string_simple() {
 fn test_quoted_string_with_spaces() {
     let src = "key = \"hello world\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("hello world".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("hello world".into())
+    );
 }
 
 #[test]
 fn test_quoted_string_preserves_leading_trailing_whitespace() {
     let src = "key = \"  spaced  \"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::String("  spaced  ".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::String("  spaced  ".into())
+    );
 }
 
 #[test]
@@ -901,15 +1002,24 @@ fn test_key_value_unusual_chars_in_value() {
 fn test_implicit_object() {
     let src = "server\n| host = localhost\n| port = 8080\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["server", "host"]), Value::String("localhost".into()));
-    assert_eq!(get_value(&value, &["server", "port"]), Value::Number(8080.0));
+    assert_eq!(
+        get_value(&value, &["server", "host"]),
+        Value::String("localhost".into())
+    );
+    assert_eq!(
+        get_value(&value, &["server", "port"]),
+        Value::Number(8080.0)
+    );
 }
 
 #[test]
 fn test_deeply_nested_object() {
     let src = "a\n| b\n| | c\n| | | d = deep\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["a", "b", "c", "d"]), Value::String("deep".into()));
+    assert_eq!(
+        get_value(&value, &["a", "b", "c", "d"]),
+        Value::String("deep".into())
+    );
 }
 
 #[test]
@@ -1012,17 +1122,27 @@ fn test_array_objects() {
     let value = parse_ok(src);
     let arr = get_array(&value, &["features"]);
     assert_eq!(arr.len(), 2);
-    let first = match &arr[0] {
-        Value::Object(fields) => fields,
-        _ => panic!("expected object"),
+    let Value::Object(first) = &arr[0] else {
+        panic!("expected object")
     };
-    assert!(first.iter().any(|(k, v)| k == "name" && v == &Value::String("new-ui".into())));
-    assert!(first.iter().any(|(k, v)| k == "enabled" && v == &Value::Bool(true)));
-    let second = match &arr[1] {
-        Value::Object(fields) => fields,
-        _ => panic!("expected object"),
+    assert!(
+        first
+            .iter()
+            .any(|(k, v)| k == "name" && v == &Value::String("new-ui".into()))
+    );
+    assert!(
+        first
+            .iter()
+            .any(|(k, v)| k == "enabled" && v == &Value::Bool(true))
+    );
+    let Value::Object(second) = &arr[1] else {
+        panic!("expected object")
     };
-    assert!(second.iter().any(|(k, v)| k == "enabled" && v == &Value::Bool(false)));
+    assert!(
+        second
+            .iter()
+            .any(|(k, v)| k == "enabled" && v == &Value::Bool(false))
+    );
 }
 
 #[test]
@@ -1082,13 +1202,16 @@ fn test_append_preserves_order() {
 
 #[test]
 fn test_dotted_append() {
-    let src = "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";
+    let src =
+        "server\n| host = localhost\n~server.users\n| name = alice\n~server.users\n| name = bob\n";
     let value = parse_ok(src);
     let server = get_object(&value, &["server"]);
-    let users_idx = server.iter().position(|(k, _)| k == "users").expect("no users");
-    let users = match &server[users_idx].1 {
-        Value::Array(arr) => arr,
-        _ => panic!("expected array"),
+    let users_idx = server
+        .iter()
+        .position(|(k, _)| k == "users")
+        .expect("no users");
+    let Value::Array(users) = &server[users_idx].1 else {
+        panic!("expected array")
     };
     assert_eq!(users.len(), 2);
 }
@@ -1136,7 +1259,10 @@ fn test_append_tilde_at_eof_no_children() {
     let src = "~orphan";
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
-    assert!(result.is_err(), "tilde at EOF without children should error");
+    assert!(
+        result.is_err(),
+        "tilde at EOF without children should error"
+    );
     let errors = result.unwrap_err();
     assert!(errors[0].contains("append requires child statements after the path"));
 }
@@ -1180,7 +1306,10 @@ fn test_leading_whitespace_before_pipe_equivalent_to_no_whitespace() {
 fn test_multiple_pipes_on_one_line_indent_deeply() {
     let src = "root\n| mid\n| | deep = val\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["root", "mid", "deep"]), Value::String("val".into()));
+    assert_eq!(
+        get_value(&value, &["root", "mid", "deep"]),
+        Value::String("val".into())
+    );
 }
 
 // ============================================================================
@@ -1263,7 +1392,10 @@ fn test_errors_include_source_location() {
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
-    assert!(errors[0].contains("2:"), "expected line:col in error: {errors:?}");
+    assert!(
+        errors[0].contains("2:"),
+        "expected line:col in error: {errors:?}"
+    );
 }
 
 #[test]
@@ -1287,7 +1419,10 @@ fn test_unterminated_string_error_includes_location() {
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
     assert!(errors[0].contains("1:"), "missing location: {errors:?}");
-    assert!(errors[0].contains("unterminated string"), "wrong message: {errors:?}");
+    assert!(
+        errors[0].contains("unterminated string"),
+        "wrong message: {errors:?}"
+    );
 }
 
 #[test]
@@ -1297,7 +1432,10 @@ fn test_unterminated_multiline_string_error_includes_location() {
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
     assert!(errors[0].contains("1:"), "missing location: {errors:?}");
-    assert!(errors[0].contains("unterminated multiline"), "wrong message: {errors:?}");
+    assert!(
+        errors[0].contains("unterminated multiline"),
+        "wrong message: {errors:?}"
+    );
 }
 
 #[test]
@@ -1307,7 +1445,10 @@ fn test_unterminated_block_comment_error_includes_location() {
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
     assert!(errors[0].contains("1:"), "missing location: {errors:?}");
-    assert!(errors[0].contains("unterminated block comment"), "wrong message: {errors:?}");
+    assert!(
+        errors[0].contains("unterminated block comment"),
+        "wrong message: {errors:?}"
+    );
 }
 
 #[test]
@@ -1316,8 +1457,16 @@ fn test_unexpected_character_error_includes_location() {
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("2:")), "missing location: {errors:?}");
-    assert!(errors.iter().any(|e| e.contains("unexpected-character") || e.contains("unexpected character")), "wrong message: {errors:?}");
+    assert!(
+        errors.iter().any(|e| e.contains("2:")),
+        "missing location: {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.contains("unexpected-character") || e.contains("unexpected character")),
+        "wrong message: {errors:?}"
+    );
 }
 
 #[test]
@@ -1326,7 +1475,10 @@ fn test_duplicate_key_error_includes_locations() {
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
-    assert!(errors[0].contains("2:"), "missing second-def location: {errors:?}");
+    assert!(
+        errors[0].contains("2:"),
+        "missing second-def location: {errors:?}"
+    );
 }
 
 // ============================================================================
@@ -1358,9 +1510,8 @@ fn test_only_whitespace_and_newlines() {
 fn test_root_order_preserved() {
     let src = "z = 1\na = 2\nm = 3\n";
     let value = parse_ok(src);
-    let fields = match value {
-        Value::Object(fields) => fields,
-        _ => panic!("expected object"),
+    let Value::Object(fields) = value else {
+        panic!("expected object")
     };
     assert_eq!(fields[0].0, "z");
     assert_eq!(fields[1].0, "a");
@@ -1379,7 +1530,10 @@ fn test_sibling_objects() {
 fn test_array_and_object_mixed_depth() {
     let src = "root\n| items\n| | - a\n| | - b\n| scalar = val\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["root", "scalar"]), Value::String("val".into()));
+    assert_eq!(
+        get_value(&value, &["root", "scalar"]),
+        Value::String("val".into())
+    );
     let items = get_array(&value, &["root", "items"]);
     assert_eq!(items.len(), 2);
 }
@@ -1425,14 +1579,12 @@ fn test_array_object_with_sub_array() {
     let value = parse_ok(src);
     let arr = get_array(&value, &["cfg"]);
     assert_eq!(arr.len(), 1);
-    let obj = match &arr[0] {
-        Value::Object(fields) => fields,
-        _ => panic!("expected object"),
+    let Value::Object(obj) = &arr[0] else {
+        panic!("expected object")
     };
     let tags = obj.iter().find(|(k, _)| k == "tags").unwrap();
-    let tags_arr = match &tags.1 {
-        Value::Array(arr) => arr,
-        _ => panic!("expected array"),
+    let Value::Array(tags_arr) = &tags.1 else {
+        panic!("expected array")
     };
     assert_eq!(tags_arr.len(), 2);
 }
@@ -1476,7 +1628,10 @@ fn test_bare_slash_at_key_position_is_error() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "bare / at key position should error");
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("unexpected-character")), "should report unexpected /: {errors:?}");
+    assert!(
+        errors.iter().any(|e| e.contains("unexpected-character")),
+        "should report unexpected /: {errors:?}"
+    );
 }
 
 #[test]
@@ -1493,7 +1648,10 @@ fn test_tagged_literal_invalid_escape_is_error() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "invalid escape in tagged should error");
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("invalid escape")), "should report invalid escape: {errors:?}");
+    assert!(
+        errors.iter().any(|e| e.contains("invalid escape")),
+        "should report invalid escape: {errors:?}"
+    );
 }
 
 #[test]
@@ -1503,7 +1661,12 @@ fn test_dotted_path_incomplete_dot_is_error() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "incomplete dotted path should error");
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("expected identifier after '.'")), "should report missing ident: {errors:?}");
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.contains("expected identifier after '.'")),
+        "should report missing ident: {errors:?}"
+    );
 }
 
 #[test]
@@ -1513,7 +1676,10 @@ fn test_unexpected_token_after_ident_is_error() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "unexpected token after ident should error");
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("unexpected token")), "should report unexpected token: {errors:?}");
+    assert!(
+        errors.iter().any(|e| e.contains("unexpected token")),
+        "should report unexpected token: {errors:?}"
+    );
 }
 
 #[test]
@@ -1522,9 +1688,15 @@ fn test_multiline_string_closing_at_shallower_depth_is_content() {
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
     // `"""` at depth 1 when content is at depth 2 → not recognized as closing → unterminated
-    assert!(result.is_err(), "closing at wrong depth should be unterminated");
+    assert!(
+        result.is_err(),
+        "closing at wrong depth should be unterminated"
+    );
     let errors = result.unwrap_err();
-    assert!(errors.iter().any(|e| e.contains("unterminated multiline")), "should be unterminated: {errors:?}");
+    assert!(
+        errors.iter().any(|e| e.contains("unterminated multiline")),
+        "should be unterminated: {errors:?}"
+    );
 }
 
 #[test]
@@ -1534,8 +1706,14 @@ fn test_dotted_duplicate_at_depth_fires_error() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "dotted duplicate should error");
     let errors = result.unwrap_err();
-    assert!(errors[0].contains("duplicate-key"), "should be duplicate-key: {errors:?}");
-    assert!(errors[0].contains("c"), "should mention the duplicate key: {errors:?}");
+    assert!(
+        errors[0].contains("duplicate-key"),
+        "should be duplicate-key: {errors:?}"
+    );
+    assert!(
+        errors[0].contains('c'),
+        "should mention the duplicate key: {errors:?}"
+    );
 }
 
 #[test]
@@ -1545,7 +1723,10 @@ fn test_type_conflict_at_depth() {
     let result = Parser::new(tokens, src).parse();
     assert!(result.is_err(), "type conflict at depth should error");
     let errors = result.unwrap_err();
-    assert!(errors[0].contains("type-conflict"), "should be type-conflict: {errors:?}");
+    assert!(
+        errors[0].contains("type-conflict"),
+        "should be type-conflict: {errors:?}"
+    );
 }
 
 #[test]
@@ -1577,9 +1758,8 @@ fn test_append_to_array_block() {
     assert_eq!(arr.len(), 3);
     assert_eq!(arr[0], Value::String("a".into()));
     assert_eq!(arr[1], Value::String("b".into()));
-    let obj = match &arr[2] {
-        Value::Object(fields) => fields,
-        _ => panic!("expected object"),
+    let Value::Object(obj) = &arr[2] else {
+        panic!("expected object")
     };
     assert_eq!(obj[0].1, Value::Number(1.0));
 }
@@ -1604,7 +1784,10 @@ fn test_blank_lines_within_array_block() {
 fn test_empty_tagged_string() {
     let src = "key = tag\"\"\n";
     let value = parse_ok(src);
-    assert_eq!(get_value(&value, &["key"]), Value::Tagged("tag".into(), "".into()));
+    assert_eq!(
+        get_value(&value, &["key"]),
+        Value::Tagged("tag".into(), String::new())
+    );
 }
 
 #[test]
@@ -1621,7 +1804,10 @@ fn test_syntax_error_includes_location() {
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
     let errors = result.unwrap_err();
-    assert!(errors[0].contains("1:"), "syntax-error missing location: {errors:?}");
+    assert!(
+        errors[0].contains("1:"),
+        "syntax-error missing location: {errors:?}"
+    );
     assert!(errors[0].contains("syntax-error"), "wrong kind: {errors:?}");
 }
 
@@ -1641,7 +1827,9 @@ fn get_value(value: &Value, path: &[&str]) -> Value {
     for key in path {
         match current {
             Value::Object(ref fields) => {
-                let found = fields.iter().find(|(k, _)| k == key)
+                let found = fields
+                    .iter()
+                    .find(|(k, _)| k == key)
                     .unwrap_or_else(|| panic!("key '{key}' not found"))
                     .1
                     .clone();
@@ -1666,7 +1854,7 @@ fn traverse_ref<'a>(value: &'a Value, path: &[&str]) -> &'a Value {
         match current {
             Value::Object(fields) => {
                 let mut found = None;
-                for (k, v) in fields.iter() {
+                for (k, v) in fields {
                     if k == key {
                         found = Some(v);
                         break;
@@ -1693,6 +1881,3 @@ fn get_object<'a>(value: &'a Value, path: &[&str]) -> &'a Vec<(String, Value)> {
         _ => panic!("expected object"),
     }
 }
-
-
-

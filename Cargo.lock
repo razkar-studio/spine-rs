@@ -140,18 +140,18 @@ dependencies = [
 
 [[package]]
 name = "farben"
-version = "0.18.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "853609baeff50e5c2954cea5bf4ee0e8a4342b1d611e4709d482be2cb883c319"
+checksum = "f7f26b2bcf01cec0b1e2eb7cc34258baa38d3d5c521b6731e82c078586f01087"
 dependencies = [
  "farben-core",
 ]
 
 [[package]]
 name = "farben-core"
-version = "0.13.4"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e70d8cb117d59cf22c1db2f9ea092ce1208b14e5048dbd4d9dc9e8ccef3dde07"
+checksum = "c5d78df15218c897a368f1eb07d60dfdbc539f735eca4ad7f8f1be4f45eae4b5"
 
 [[package]]
 name = "fastrand"

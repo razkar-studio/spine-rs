@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 pub(crate) fn to_string_inner(value: &spine_rs::Value) -> String {
     let mut buf = String::new();
     match value {
@@ -16,12 +18,12 @@ fn write_value(value: &spine_rs::Value, buf: &mut String, depth: usize, key: Opt
     match value {
         spine_rs::Value::Null => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k} = null\n"));
+                let _ = writeln!(buf, "{pipes}{k} = null");
             }
         }
         spine_rs::Value::Bool(b) => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k} = {b}\n"));
+                let _ = writeln!(buf, "{pipes}{k} = {b}");
             }
         }
         spine_rs::Value::Number(n) => {
@@ -31,22 +33,22 @@ fn write_value(value: &spine_rs::Value, buf: &mut String, depth: usize, key: Opt
                 } else {
                     format!("{n}")
                 };
-                buf.push_str(&format!("{pipes}{k} = {s}\n"));
+                let _ = writeln!(buf, "{pipes}{k} = {s}");
             }
         }
         spine_rs::Value::String(s) => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k} = {s}\n"));
+                let _ = writeln!(buf, "{pipes}{k} = {s}");
             }
         }
         spine_rs::Value::Tagged(tag, content) => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k} = {tag}\"{content}\"\n"));
+                let _ = writeln!(buf, "{pipes}{k} = {tag}\"{content}\"");
             }
         }
         spine_rs::Value::Object(fields) => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k}\n"));
+                let _ = writeln!(buf, "{pipes}{k}");
             }
             for (field_key, field_value) in fields {
                 write_value(field_value, buf, depth + 1, Some(field_key));
@@ -54,20 +56,17 @@ fn write_value(value: &spine_rs::Value, buf: &mut String, depth: usize, key: Opt
         }
         spine_rs::Value::Array(items) => {
             if let Some(k) = key {
-                buf.push_str(&format!("{pipes}{k}\n"));
+                let _ = writeln!(buf, "{pipes}{k}");
             }
             for item in items {
-                match item {
-                    spine_rs::Value::Object(fields) => {
-                        buf.push_str(&format!("{pipes}| -\n"));
-                        for (field_key, field_value) in fields {
-                            write_value(field_value, buf, depth + 2, Some(field_key));
-                        }
+                if let spine_rs::Value::Object(fields) = item {
+                    let _ = writeln!(buf, "{pipes}| -");
+                    for (field_key, field_value) in fields {
+                        write_value(field_value, buf, depth + 2, Some(field_key));
                     }
-                    _ => {
-                        let scalar = scalar_to_string(item);
-                        buf.push_str(&format!("{pipes}| - {scalar}\n"));
-                    }
+                } else {
+                    let scalar = scalar_to_string(item);
+                    let _ = writeln!(buf, "{pipes}| - {scalar}");
                 }
             }
         }

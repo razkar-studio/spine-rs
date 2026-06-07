@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant, clippy::float_cmp)]
+
 use super::*;
 use crate::document::DocError;
 use std::{path::PathBuf, str::FromStr};
@@ -347,7 +349,7 @@ fn test_file_not_found_error() {
     assert!(result.is_err());
     match result.unwrap_err() {
         DocError::Io(_) => {} // expected
-        other => panic!("expected Io error, got {other:?}"),
+        other @ DocError::Parse(_) => panic!("expected Io error, got {other:?}"),
     }
 }
 
@@ -370,7 +372,7 @@ fn test_format_details() {
     assert!(!details.version.is_empty(), "version should not be empty");
     assert!(!details.spec.is_empty(), "spec should not be empty");
     assert_eq!(details.backend, "native");
-    println!("{:?}", details);
+    println!("{details:?}");
 }
 
 // ── parse_to_json ──
@@ -654,10 +656,10 @@ fn test_serde_basic() {
     "#,
     );
 
-    let config: Config = crate::from_document(doc).unwrap();
+    let config: Config = crate::from_document(&doc).unwrap();
     assert_eq!(config.name, "odyn");
     assert_eq!(config.version, 1.0);
-    assert_eq!(config.enabled, true);
+    assert!(config.enabled);
 }
 
 #[test]
@@ -675,15 +677,15 @@ fn test_serde_nested() {
     }
 
     let doc = crate::Document::from_str_or_panic(
-        r#"
+        r"
         ~dep
         | name = odin-http
         | source = https://github.com/laytan/odin-http
         | commit = abc123
-    "#,
+    ",
     );
 
-    let lockfile: Lockfile = crate::from_document(doc).unwrap();
+    let lockfile: Lockfile = crate::from_document(&doc).unwrap();
     assert_eq!(lockfile.dep.len(), 1);
     assert_eq!(lockfile.dep[0].name, "odin-http");
 }
@@ -707,6 +709,6 @@ fn test_serde_roundtrip() {
 
     let doc = crate::to_document(&original).unwrap();
     println!("{}", doc.to_string().unwrap());
-    let result: Config = crate::from_document(doc).unwrap();
+    let result: Config = crate::from_document(&doc).unwrap();
     assert_eq!(original, result);
 }

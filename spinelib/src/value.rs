@@ -1,3 +1,7 @@
+/// A Spine value with ergonomic accessor methods.
+///
+/// Wraps `spine_rs::Value` and provides typed accessors for inspecting
+/// the AST without pattern-matching on the core enum directly.
 pub struct Value {
     inner: spine_rs::Value,
 }
@@ -11,6 +15,7 @@ impl Value {
         self.inner
     }
 
+    /// Returns the variant type of this value.
     #[must_use]
     pub fn value_type(&self) -> ValueType {
         match self.inner {
@@ -24,6 +29,7 @@ impl Value {
         }
     }
 
+    /// Returns the boolean value if this is a `Bool`, otherwise `None`.
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match &self.inner {
@@ -32,6 +38,7 @@ impl Value {
         }
     }
 
+    /// Returns the numeric value if this is a `Number`, otherwise `None`.
     #[must_use]
     pub fn as_f64(&self) -> Option<f64> {
         match &self.inner {
@@ -40,6 +47,7 @@ impl Value {
         }
     }
 
+    /// Returns the string value if this is a `String`, otherwise `None`.
     #[must_use]
     pub fn as_str(&self) -> Option<String> {
         match &self.inner {
@@ -48,6 +56,7 @@ impl Value {
         }
     }
 
+    /// Returns the `(tag, content)` pair if this is a `Tagged`, otherwise `None`.
     #[must_use]
     pub fn tag(&self) -> Option<(String, String)> {
         match &self.inner {
@@ -56,11 +65,14 @@ impl Value {
         }
     }
 
+    /// Returns `true` if this value is an empty array or empty object.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Returns the number of elements for arrays and objects, or `0` for
+    /// all other types.
     #[must_use]
     pub fn len(&self) -> usize {
         match &self.inner {
@@ -70,6 +82,7 @@ impl Value {
         }
     }
 
+    /// Returns the element at `index` if this is an array.
     #[must_use]
     pub fn get_index(&self, index: usize) -> Option<Self> {
         match &self.inner {
@@ -78,6 +91,7 @@ impl Value {
         }
     }
 
+    /// Returns the value at `key` if this is an object.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<Self> {
         match &self.inner {
@@ -89,6 +103,7 @@ impl Value {
         }
     }
 
+    /// Returns the key at `index` if this is an object.
     #[must_use]
     pub fn key_at(&self, index: usize) -> Option<String> {
         match &self.inner {
@@ -98,13 +113,21 @@ impl Value {
     }
 }
 
+/// The type of a Spine value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ValueType {
+    /// The `null` value.
     Null,
+    /// A boolean (`true` or `false`).
     Bool,
+    /// A numeric literal.
     Number,
+    /// A string literal.
     String,
+    /// An ordered list of values.
     Array,
+    /// A key-value mapping.
     Object,
+    /// A tagged literal.
     Tagged,
 }

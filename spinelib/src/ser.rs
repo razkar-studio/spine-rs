@@ -1,5 +1,7 @@
+/// Errors that can occur during Spine serialization.
 #[derive(Debug)]
 pub enum SerError {
+    /// A custom error message.
     Custom(String),
 }
 
@@ -19,6 +21,7 @@ impl std::fmt::Display for SerError {
     }
 }
 
+/// Serializer for Spine sequence types (arrays, tuples).
 pub struct SeqSerializer {
     items: Vec<spine_rs::Value>,
 }
@@ -62,6 +65,7 @@ impl_seq_serializer!(SerializeTuple, serialize_element);
 impl_seq_serializer!(SerializeTupleStruct, serialize_field);
 impl_seq_serializer!(SerializeTupleVariant, serialize_field);
 
+/// Serializer for Spine object types (structs, maps).
 pub struct MapSerializer {
     fields: Vec<(String, spine_rs::Value)>,
     current_key: Option<String>,
@@ -122,13 +126,24 @@ impl serde::ser::SerializeMap for MapSerializer {
     }
 }
 
+/// The Spine serializer.
+///
+/// Converts Rust types implementing `serde::Serialize` into
+/// `spine_rs::Value` trees.
 pub struct Serializer;
 
+/// Serializes a Rust value into a Spine `Document`.
+///
+/// # Errors
+///
+/// Returns `SerError` if the value contains types that cannot be
+/// represented in Spine (e.g. raw byte sequences).
 pub fn to_document<T: serde::Serialize>(value: &T) -> Result<crate::Document, SerError> {
     let value = value.serialize(Serializer)?;
     Ok(crate::Document::from_value(value))
 }
 
+#[allow(clippy::cast_precision_loss)]
 impl serde::Serializer for Serializer {
     type Ok = spine_rs::Value;
     type Error = SerError;
@@ -146,7 +161,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_f64(self, v: f64) -> Result<spine_rs::Value, SerError> {
@@ -154,15 +169,15 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
@@ -174,15 +189,15 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        Ok(spine_rs::Value::Number(v as f64))
+        Ok(spine_rs::Value::Number(f64::from(v)))
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
@@ -248,8 +263,7 @@ impl serde::Serializer for Serializer {
         variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut map = vec![];
-        map.push((variant.to_string(), value.serialize(Serializer)?));
+        let map = vec![(variant.to_string(), value.serialize(Serializer)?)];
         Ok(spine_rs::Value::Object(map))
     }
 

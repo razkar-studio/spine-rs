@@ -3,16 +3,27 @@ use std::ffi::{CStr, CString};
 use std::fmt::Write;
 use std::os::raw::{c_char, c_double, c_int, c_ulong};
 
-/// Opaque types that C sees as pointers
+/// Opaque type representing a parsed Spine document.
+///
+/// C code receives and returns this as an opaque pointer. Use the
+/// accessor functions to inspect the document's root value and errors.
 pub struct SpineDoc {
     root: Option<Value>,
     errors: Vec<String>,
 }
 
+/// Opaque type representing a Spine value.
+///
+/// Returned by document and value accessors. Must not be retained
+/// after the parent document is freed.
 pub struct SpineValue {
     inner: *const Value,
 }
 
+/// Parses Spine source text and returns a `SpineDoc`.
+///
+/// The returned document must be freed with `spine_free_doc`.
+///
 /// # Safety
 ///
 /// `input` must be a valid null-terminated C string.
@@ -85,17 +96,23 @@ pub unsafe extern "C" fn spine_parse_named(
     Box::into_raw(Box::new(doc))
 }
 
+/// Returns `true` if the document contains parse errors.
+///
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_has_errors(doc: *const SpineDoc) -> bool {
+pub unsafe extern "C" fn spine_has_errors(doc: *const SpineDoc) -> bool {
     if doc.is_null() {
         return true;
     }
     !unsafe { (*doc).errors.is_empty() }
 }
 
+/// Returns a newline-separated string of all parse errors.
+///
+/// The returned string must be freed with `spine_free_string`.
+///
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.
@@ -108,6 +125,8 @@ pub unsafe extern "C" fn spine_get_errors(doc: *const SpineDoc) -> *mut c_char {
     CString::new(errors).map_or(std::ptr::null_mut(), CString::into_raw)
 }
 
+/// Returns a pointer to the document's root value, or null for empty documents.
+///
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.
@@ -125,11 +144,22 @@ pub unsafe extern "C" fn spine_doc_root(doc: *const SpineDoc) -> *const SpineVal
         })
 }
 
+/// Returns the type of a Spine value as an integer:
+///
+/// - `-1`: null pointer
+/// - `0`: Null
+/// - `1`: Bool
+/// - `2`: Number
+/// - `3`: String
+/// - `4`: Array
+/// - `5`: Object
+/// - `6`: Tagged
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_value_type(val: *const SpineValue) -> c_int {
+pub unsafe extern "C" fn spine_value_type(val: *const SpineValue) -> c_int {
     if val.is_null() {
         return -1;
     }
@@ -144,11 +174,13 @@ pub const unsafe extern "C" fn spine_value_type(val: *const SpineValue) -> c_int
     }
 }
 
+/// Returns the boolean value, or `false` if not a boolean.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_value_bool(val: *const SpineValue) -> bool {
+pub unsafe extern "C" fn spine_value_bool(val: *const SpineValue) -> bool {
     if val.is_null() {
         return false;
     }
@@ -158,11 +190,13 @@ pub const unsafe extern "C" fn spine_value_bool(val: *const SpineValue) -> bool 
     }
 }
 
+/// Returns the numeric value, or `0.0` if not a number.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_value_number(val: *const SpineValue) -> c_double {
+pub unsafe extern "C" fn spine_value_number(val: *const SpineValue) -> c_double {
     if val.is_null() {
         return 0.0;
     }
@@ -172,6 +206,10 @@ pub const unsafe extern "C" fn spine_value_number(val: *const SpineValue) -> c_d
     }
 }
 
+/// Returns the string value as a C string, or null if not a string.
+///
+/// The returned string must be freed with `spine_free_string`.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -188,6 +226,10 @@ pub unsafe extern "C" fn spine_value_string(val: *const SpineValue) -> *mut c_ch
     }
 }
 
+/// Returns the tag name of a tagged value, or null if not tagged.
+///
+/// The returned string must be freed with `spine_free_string`.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -204,6 +246,10 @@ pub unsafe extern "C" fn spine_value_tag(val: *const SpineValue) -> *mut c_char 
     }
 }
 
+/// Returns the content of a tagged value, or null if not tagged.
+///
+/// The returned string must be freed with `spine_free_string`.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -220,11 +266,13 @@ pub unsafe extern "C" fn spine_value_tag_content(val: *const SpineValue) -> *mut
     }
 }
 
+/// Returns the number of elements in an array, or `0` if not an array.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulong {
+pub unsafe extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulong {
     if val.is_null() {
         return 0;
     }
@@ -234,6 +282,8 @@ pub const unsafe extern "C" fn spine_array_len(val: *const SpineValue) -> c_ulon
     }
 }
 
+/// Returns the element at `index` from an array, or null if out of bounds.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -257,11 +307,13 @@ pub unsafe extern "C" fn spine_array_get(
     }
 }
 
+/// Returns the number of fields in an object, or `0` if not an object.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
 #[unsafe(no_mangle)]
-pub const unsafe extern "C" fn spine_object_len(val: *const SpineValue) -> c_ulong {
+pub unsafe extern "C" fn spine_object_len(val: *const SpineValue) -> c_ulong {
     if val.is_null() {
         return 0;
     }
@@ -271,6 +323,9 @@ pub const unsafe extern "C" fn spine_object_len(val: *const SpineValue) -> c_ulo
     }
 }
 
+/// Returns the key at `index` from an object's field list, or null if
+/// out of bounds. The returned string must be freed with `spine_free_string`.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -288,6 +343,8 @@ pub unsafe extern "C" fn spine_object_key(val: *const SpineValue, index: c_ulong
     }
 }
 
+/// Returns the value at `key` from an object, or null if not found.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -317,6 +374,8 @@ pub unsafe extern "C" fn spine_object_get(
 
 // --- //
 
+/// Frees a `SpineDoc` allocated by the parser.
+///
 /// # Safety
 ///
 /// `doc` must be a valid pointer to a `SpineDoc` or null.
@@ -329,6 +388,8 @@ pub unsafe extern "C" fn spine_free_doc(doc: *mut SpineDoc) {
     }
 }
 
+/// Frees a `SpineValue` allocated by the library.
+///
 /// # Safety
 ///
 /// `val` must be a valid pointer to a `SpineValue` or null.
@@ -341,6 +402,8 @@ pub unsafe extern "C" fn spine_free_value(val: *mut SpineValue) {
     }
 }
 
+/// Frees a string allocated by the library.
+///
 /// # Safety
 ///
 /// `s` must be a valid pointer to a C string allocated by Spine, or null.
@@ -354,16 +417,26 @@ pub unsafe extern "C" fn spine_free_string(s: *mut c_char) {
 }
 
 /// Parser and spec metadata exposed by the ABI layer.
+///
+/// The caller MUST free the strings with `spine_free_format_details`.
 #[repr(C)]
 pub struct SpineFormatDetails {
+    /// The parser version string.
     pub version: *const c_char,
+    /// The spec version this parser targets.
     pub spec: *const c_char,
+    /// The backend type (`"native"` or `"wasm"`).
     pub backend: *const c_char,
 }
 
-/// Returns the parser version, spec version, and whether this is native or WASM.
+/// Returns the parser version, spec version, and backend type.
 ///
 /// The caller MUST free the returned struct with `spine_free_format_details`.
+///
+/// # Safety
+///
+/// Calling this function is always safe; it returns a pointer to a static
+/// structure with format details.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
     fn to_c(s: &str) -> *mut c_char {
@@ -387,23 +460,24 @@ pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
 ///
 /// # Safety
 ///
-/// `details` must have been returned by `spine_format_details` and not freed already.
+/// `details` must have been returned by `spine_format_details` and not
+/// freed already.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn spine_free_format_details(details: SpineFormatDetails) {
     unsafe {
-        drop(CString::from_raw(details.version as *mut c_char));
-        drop(CString::from_raw(details.spec as *mut c_char));
-        drop(CString::from_raw(details.backend as *mut c_char));
+        drop(CString::from_raw(details.version.cast_mut()));
+        drop(CString::from_raw(details.spec.cast_mut()));
+        drop(CString::from_raw(details.backend.cast_mut()));
     }
 }
 
-/// Parse Spine source and return the AST as a JSON string.
+/// Parses Spine source and returns the AST as a JSON string.
 ///
 /// The JSON output includes format metadata and either the parsed
 /// value or error information:
 ///
 /// ```json
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native",ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":true,"value":{...}}
 /// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":false,"errors":[...]}
 /// ```
 ///

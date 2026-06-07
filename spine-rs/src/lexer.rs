@@ -1,5 +1,10 @@
 use crate::{SpannedToken, Token};
 
+/// Tokenizes Spine source text into a stream of `SpannedToken` values.
+///
+/// The lexer handles indentation tracking (pipe counts), string and
+/// multiline string lexing, escape sequences, tagged literals, comments,
+/// and bare-value heuristics (number, bool, null inference).
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
@@ -10,6 +15,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    /// Creates a new lexer for the given source text.
     #[must_use]
     pub fn new(input: &str) -> Self {
         Self {
@@ -42,7 +48,7 @@ impl Lexer {
         c
     }
 
-    const fn is_at_end(&self) -> bool {
+    fn is_at_end(&self) -> bool {
         self.pos >= self.input.len()
     }
 
@@ -96,6 +102,7 @@ impl Lexer {
         ))
     }
 
+    #[allow(clippy::too_many_lines)]
     fn lex_string(&mut self) -> Token {
         self.after_value_start = false;
         let start_line = self.line;
@@ -137,13 +144,12 @@ impl Lexer {
                             );
                             match (d1, d2) {
                                 (Some(h1), Some(h2))
-                                    if h1.is_ascii_hexdigit()
-                                        && h2.is_ascii_hexdigit() =>
+                                    if h1.is_ascii_hexdigit() && h2.is_ascii_hexdigit() =>
                                 {
                                     self.advance();
                                     self.advance();
-                                    let val = (h1.to_digit(16).unwrap() << 4)
-                                        | h2.to_digit(16).unwrap();
+                                    let val =
+                                        (h1.to_digit(16).unwrap() << 4) | h2.to_digit(16).unwrap();
                                     s.push(char::from_u32(val).unwrap());
                                 }
                                 _ => {
@@ -180,7 +186,7 @@ impl Lexer {
                                     ));
                                 }
                                 let val = u32::from_str_radix(&hex, 16).unwrap();
-                                if val > 0x10FFFF {
+                                if val > 0x0010_FFFF {
                                     return Token::Error(format!(
                                         "{start_line}:{start_col} unicode escape out of range"
                                     ));
@@ -364,12 +370,12 @@ impl Lexer {
 
         if self.peek() == Some('"') {
             self.advance();
-            return match self.read_tagged_content() {
-                Some(content) => Token::Tagged(s, content),
-                None => {
-                    let msg = format!("{}:{} invalid escape in tagged literal", self.line, self.col);
-                    Token::Error(msg)
-                }
+            return if let Some(content) = self.read_tagged_content() { Token::Tagged(s, content) } else {
+                let msg = format!(
+                    "{}:{} invalid escape in tagged literal",
+                    self.line, self.col
+                );
+                Token::Error(msg)
             };
         }
 
@@ -387,15 +393,14 @@ impl Lexer {
                 scan += 1;
             }
             if found_tag_literal {
-                let tag_segment: String =
-                    self.input[self.pos..scan].iter().copied().collect();
+                let tag_segment: String = self.input[self.pos..scan].iter().copied().collect();
                 let is_valid = tag_segment.starts_with('.')
                     && tag_segment[1..].split('.').all(|part| {
                         !part.is_empty()
-                            && part.chars().next().is_some_and(|c| c.is_alphabetic())
-                            && part.chars().all(|c| {
-                                c.is_alphanumeric() || c == '_' || c == '-'
-                            })
+                            && part.chars().next().is_some_and(char::is_alphabetic)
+                            && part
+                                .chars()
+                                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
                     });
                 if is_valid {
                     let tag_suffix = &tag_segment[1..];
@@ -404,12 +409,12 @@ impl Lexer {
                         self.advance();
                     }
                     self.advance();
-                    return match self.read_tagged_content() {
-                        Some(content) => Token::Tagged(full_tag, content),
-                        None => {
-                            let msg = format!("{}:{} invalid escape in tagged literal", self.line, self.col);
-                            Token::Error(msg)
-                        }
+                    return if let Some(content) = self.read_tagged_content() { Token::Tagged(full_tag, content) } else {
+                        let msg = format!(
+                            "{}:{} invalid escape in tagged literal",
+                            self.line, self.col
+                        );
+                        Token::Error(msg)
                     };
                 }
             }
@@ -494,6 +499,10 @@ impl Lexer {
         Self::typed_bare_value(&trimmed)
     }
 
+    /// Tokenizes the entire input and returns a vector of spanned tokens.
+    ///
+    /// Tokens are produced in source order. The returned vector includes
+    /// all significant tokens as well as comments and error tokens.
     #[allow(clippy::missing_panics_doc)]
     pub fn tokenize(&mut self) -> Vec<SpannedToken> {
         let mut tokens = Vec::new();
@@ -504,7 +513,6 @@ impl Lexer {
             match self.peek().unwrap() {
                 ' ' | '\t' => {
                     self.advance();
-                    continue;
                 }
                 '\n' => {
                     self.after_value_start = false;
@@ -646,11 +654,8 @@ fn process_str_escapes(s: &str) -> Result<String, String> {
             Some('x') => {
                 let (h1, h2) = (it.next(), it.next());
                 match (h1, h2) {
-                    (Some(h1), Some(h2))
-                        if h1.is_ascii_hexdigit() && h2.is_ascii_hexdigit() =>
-                    {
-                        let val =
-                            (h1.to_digit(16).unwrap() << 4) | h2.to_digit(16).unwrap();
+                    (Some(h1), Some(h2)) if h1.is_ascii_hexdigit() && h2.is_ascii_hexdigit() => {
+                        let val = (h1.to_digit(16).unwrap() << 4) | h2.to_digit(16).unwrap();
                         result.push(char::from_u32(val).unwrap());
                     }
                     _ => return Err("invalid \\x escape".into()),
@@ -671,7 +676,7 @@ fn process_str_escapes(s: &str) -> Result<String, String> {
                         return Err("empty \\u{} escape".into());
                     }
                     let val = u32::from_str_radix(&hex, 16).unwrap();
-                    if val > 0x10FFFF {
+                    if val > 0x0010_FFFF {
                         return Err("unicode escape out of range".into());
                     }
                     if (0xD800..=0xDFFF).contains(&val) {

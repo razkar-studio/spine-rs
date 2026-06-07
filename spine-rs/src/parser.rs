@@ -5,15 +5,27 @@ use unicode_width::UnicodeWidthStr;
 
 type Spans = std::collections::HashMap<String, (usize, usize, String)>;
 
+/// Parses a token stream into a Spine `Value` tree.
+///
+/// The parser handles key-value assignments, implicit objects, dotted
+/// paths, array blocks, append operations, duplicate-key detection,
+/// type-conflict detection, and error message formatting with source
+/// location annotations.
 pub struct Parser {
     tokens: Vec<SpannedToken>,
     pos: usize,
+    /// Accumulated parse errors. Each error is a formatted string with
+    /// source location and caret annotations.
     pub errors: Vec<String>,
     source: Option<String>,
     source_lines: Vec<String>,
 }
 
 impl Parser {
+    /// Creates a new parser from a token stream and the original source text.
+    ///
+    /// The source text is required for error message formatting (source
+    /// line display and caret positions).
     #[must_use]
     pub fn new(tokens: Vec<SpannedToken>, source_text: &str) -> Self {
         Self {
@@ -28,6 +40,9 @@ impl Parser {
         }
     }
 
+    /// Sets a filename to display in error messages.
+    ///
+    /// When omitted, errors show `<input>` as the source name.
     #[must_use]
     pub fn with_source(mut self, source: &str) -> Self {
         self.source = Some(source.to_string());
@@ -138,6 +153,7 @@ impl Parser {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_ident(
         &mut self,
         name: String,
@@ -353,6 +369,7 @@ impl Parser {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_append(
         &mut self,
         fields: &mut Vec<(String, Value)>,
@@ -379,13 +396,7 @@ impl Parser {
             let error = self.format_error(
                 "syntax-error",
                 "append requires a path after '~'",
-                &[(
-                    tilde_line,
-                    tilde_col,
-                    &source,
-                    1,
-                    Some("'~' used here"),
-                )],
+                &[(tilde_line, tilde_col, &source, 1, Some("'~' used here"))],
             );
             self.errors.push(error);
             return;
@@ -507,6 +518,17 @@ impl Parser {
         }
     }
 
+    /// Parses the token stream into a Spine `Value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` containing one or more formatted error messages if
+    /// the input contains lexical errors, syntax errors, duplicate keys,
+    /// or type conflicts.
+    ///
+    /// Lexical errors (`Token::Unknown` and `Token::Error`) are detected
+    /// and reported before any parsing begins. Parse errors are accumulated
+    /// during parsing.
     #[allow(clippy::missing_errors_doc)]
     pub fn parse(&mut self) -> Result<Value, Vec<String>> {
         let mut fields: Vec<(String, Value)> = Vec::new();
@@ -564,22 +586,16 @@ impl Parser {
 
         let mut out = String::new();
 
-        out += &color_fmt!(
-            "[dim]┌─[/] [bold red]error[/red]: {}\n",
-            farben_escape(kind.to_string())
-        );
-        out += &color_fmt!(
-            "[dim]│[/]  [cyan]-->[/] {}\n",
-            farben_escape(filename.to_string())
-        );
+        out += &cformat!("[dim]┌─[/] [bold red]error[/red]: {}\n", untag!("{kind}"));
+        out += &cformat!("[dim]│[/]  [cyan]-->[/] {}\n", untag!("{filename}"));
 
         for (line, col, source_line, token_len, note) in lines {
             let gutter = format!("{line}:{col}");
 
-            out += &color_fmt!(
+            out += &cformat!(
                 "[dim]├─[/] [cyan]{}[/] {}\n",
                 gutter,
-                farben_escape(source_line.to_string())
+                untag!("{source_line}")
             );
 
             let start = col.saturating_sub(1);
@@ -591,21 +607,22 @@ impl Parser {
             caret_line.push_str(&"^".repeat(*token_len.max(&1)));
 
             if let Some(note_text) = note {
-                out += &color_fmt!(
+                out += &cformat!(
                     "[dim]│[/]  [red]{} {}[/]\n",
                     caret_line,
-                    farben_escape(note_text.to_string())
+                    untag!("{note_text}")
                 );
             } else {
-                out += &color_fmt!("[dim]│[/]  [red]{}[/]\n", caret_line);
+                out += &cformat!("[dim]│[/]  [red]{}[/]\n", caret_line);
             }
         }
 
-        out += &color_fmt!("[dim]└─[/] [bold]{}", farben_escape(message.to_string()));
+        out += &cformat!("[dim]└─[/] [bold]{}", untag!("{message}"));
 
         out
     }
 
+    #[allow(clippy::too_many_arguments, clippy::only_used_in_recursion)]
     fn merge_into(
         &mut self,
         fields: &mut Vec<(String, Value)>,
@@ -689,8 +706,4 @@ impl Parser {
             fields.push((key, value));
         }
     }
-}
-
-fn farben_escape(input: String) -> String {
-    input.replace("[", "\\[")
 }

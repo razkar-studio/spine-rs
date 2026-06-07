@@ -11,10 +11,52 @@ pub use document::Document;
 pub use ser::{SerError, to_document};
 pub use value::{Value, ValueType};
 
+/// Deserialize a Spine document from a string into a Rust type.
+///
+/// # Example
+/// ```
+/// #[derive(serde::Deserialize)]
+/// struct Config {
+///     name: String,
+/// }
+///
+/// let config: Config = spinelib::from_str("name = odyn").unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns `DeError` if the input is not valid Spine configuration or if
+/// deserialization fails.
+pub fn from_str<T: for<'de> serde::Deserialize<'de>>(input: &str) -> Result<T, de::DeError> {
+    let doc = Document::from_str(input).map_err(|e| de::DeError::Custom(format!("{e:?}")))?;
+    de::from_document(&doc)
+}
+
+/// Serialize a Rust type into a Spine document string.
+///
+/// # Example
+/// ```
+/// #[derive(serde::Serialize)]
+/// struct Config {
+///     name: String,
+/// }
+///
+/// let config = Config { name: "odyn".to_string() };
+/// let s = spinelib::to_string(&config).unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns `SerError` if serialization fails.
+pub fn to_string<T: serde::Serialize>(value: &T) -> Result<String, ser::SerError> {
+    let doc = ser::to_document(value)?;
+    Ok(doc.to_string().unwrap_or_default())
+}
+
 /// Build-time metadata about the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormatDetails {
-    /// The parser version.
+    /// The parser version (from `CARGO_PKG_VERSION`).
     pub version: String,
     /// The spec version this parser targets.
     pub spec: String,
@@ -22,7 +64,11 @@ pub struct FormatDetails {
     pub backend: String,
 }
 
-/// Returns metadata about the parser.
+/// Returns the parser version, spec version, and backend type.
+///
+/// The `backend` field is `"native"` on all platforms except WASM,
+/// where it is `"wasm"`.
+#[must_use]
 pub fn format_details() -> FormatDetails {
     FormatDetails {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -31,10 +77,18 @@ pub fn format_details() -> FormatDetails {
     }
 }
 
-/// Parse Spine source and return the AST as a JSON string.
+/// Parses Spine source and returns the AST as a JSON string.
 ///
 /// The JSON output includes format metadata, success status, and either
 /// the parsed AST or a list of errors.
+///
+/// # Example output
+///
+/// ```json
+/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":false,"errors":[...]}
+/// ```
+#[must_use]
 pub fn parse_to_json(input: &str) -> String {
     let tokens = spine_rs::Lexer::new(input).tokenize();
     let mut parser = spine_rs::Parser::new(tokens, input);
