@@ -30,7 +30,22 @@ If you have free time and when Spine develops more, you are more than welcome to
 
 ## License
 
-MIT OR Apache-2.0
+The Spec
+--------
+
+The Spine Format Specification is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0), to get a copy visit <https://creativecommons.org/licenses/by/4.0/>.
+
+In short, you’re free to share, modify, and use the work however you want, even commercially, as long as you give proper credit and mention if you made changes.
+
+The Rust Crates
+---------------
+
+The three Rust crates in this workspace are licensed under the [BSD 3-Clause License](LICENSE) (or <https://opensource.org/license/bsd-3-clause>).
+
+In short, you’re free to use, modify, and distribute this software however you want, as long as you:
+
+* Keep the original copyright notice and license text.
+* Don’t use my name or the contributors’ names to promote forked products without permission.
 
 Cheers, RazkarStudio
 

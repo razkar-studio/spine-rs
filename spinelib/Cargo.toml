@@ -1,7 +1,13 @@
 [package]
 name = "spinelib"
-version = "0.1.0"
+version = "0.1.0-beta.1"
+description = "The Spine data format"
 edition = "2024"
+license = "BSD-3-Clause"
+rust-version = "1.85"
+repository = "https://codeberg.org/razkar/spine-rs"
+categories = ["parsing", "config", "encoding"]
+keywords = ["serde", "config", "spine", "serialization", "parser"]
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }

@@ -1,7 +1,13 @@
 [package]
 name = "spine-rs"
-version = "0.1.0"
+version = "0.1.0-beta.1"
+description = "A spec-compliant parser for the Spine configuration language"
 edition = "2024"
+license = "BSD-3-Clause"
+rust-version = "1.85"
+repository = "https://codeberg.org/razkar/spine-rs"
+categories = ["parsing", "config", "text-processing"]
+keywords = ["config", "parser", "spine", "configuration", "serialization"]
 
 [dependencies]
 farben = "0.18.1"

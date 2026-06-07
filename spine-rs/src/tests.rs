@@ -1133,13 +1133,36 @@ fn test_append_dotted_path_type_conflict() {
 #[test]
 fn test_append_tilde_at_eof_no_children() {
     // Per spec §5.6, `~path` requires newline + child statement.
-    // At EOF, the parser currently accepts it as an empty array with Null.
-    // This documents the known gap.
     let src = "~orphan";
     let tokens = Lexer::new(src).tokenize();
     let result = Parser::new(tokens, src).parse();
-    // Currently no error — should error per spec grammar (missing newline).
-    assert!(result.is_ok(), "parser accepts tilde at EOF (known gap)");
+    assert!(result.is_err(), "tilde at EOF without children should error");
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("append requires child statements after the path"));
+}
+
+#[test]
+fn test_append_tilde_only_at_eof() {
+    // `~` with no path at all
+    let src = "~";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "bare tilde at EOF should error");
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("append requires a path after '~'"));
+}
+
+#[test]
+fn test_append_tilde_with_path_only_no_newline() {
+    // `~path` with no newline or children
+    let src = "~root\nother = val";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    // The append has no children at the expected indentation, so it errors.
+    // Note: `other = val` is at depth 0, but append requires depth+1 children.
+    assert!(result.is_err(), "tilde without children should error");
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("append requires child statements after the path"));
 }
 
 // ============================================================================
@@ -1444,6 +1467,162 @@ fn test_from_file() {
         println!("{}", errors.join(""));
         panic!("example.spn should parse without errors");
     }
+}
+
+#[test]
+fn test_bare_slash_at_key_position_is_error() {
+    let src = "key = val\n/alone\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "bare / at key position should error");
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| e.contains("unexpected-character")), "should report unexpected /: {errors:?}");
+}
+
+#[test]
+fn test_slash_in_bare_value_after_equals() {
+    let src = "key = a/b\n";
+    let value = parse_ok(src);
+    assert_eq!(get_str(&value, &["key"]), "a/b");
+}
+
+#[test]
+fn test_tagged_literal_invalid_escape_is_error() {
+    let src = "key = tag\"hello\\zworld\"\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "invalid escape in tagged should error");
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| e.contains("invalid escape")), "should report invalid escape: {errors:?}");
+}
+
+#[test]
+fn test_dotted_path_incomplete_dot_is_error() {
+    let src = "a. = val\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "incomplete dotted path should error");
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| e.contains("expected identifier after '.'")), "should report missing ident: {errors:?}");
+}
+
+#[test]
+fn test_unexpected_token_after_ident_is_error() {
+    let src = "key key2 = val\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "unexpected token after ident should error");
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| e.contains("unexpected token")), "should report unexpected token: {errors:?}");
+}
+
+#[test]
+fn test_multiline_string_closing_at_shallower_depth_is_content() {
+    let src = "obj\n| q = \"\"\"\n| | content\n| \"\"\"\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    // `"""` at depth 1 when content is at depth 2 → not recognized as closing → unterminated
+    assert!(result.is_err(), "closing at wrong depth should be unterminated");
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| e.contains("unterminated multiline")), "should be unterminated: {errors:?}");
+}
+
+#[test]
+fn test_dotted_duplicate_at_depth_fires_error() {
+    let src = "a.b.c = 1\na.b.c = 2\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "dotted duplicate should error");
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("duplicate-key"), "should be duplicate-key: {errors:?}");
+    assert!(errors[0].contains("c"), "should mention the duplicate key: {errors:?}");
+}
+
+#[test]
+fn test_type_conflict_at_depth() {
+    let src = "a.b = 1\na.b.c = 2\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "type conflict at depth should error");
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("type-conflict"), "should be type-conflict: {errors:?}");
+}
+
+#[test]
+fn test_tagged_value_in_array() {
+    let src = "items\n| - date\"2026-01-01\"\n| - num\"42\"\n";
+    let value = parse_ok(src);
+    let arr = get_array(&value, &["items"]);
+    assert_eq!(arr.len(), 2);
+    assert_eq!(arr[0], Value::Tagged("date".into(), "2026-01-01".into()));
+    assert_eq!(arr[1], Value::Tagged("num".into(), "42".into()));
+}
+
+#[test]
+fn test_bool_and_null_in_array_as_value() {
+    let src = "vals\n| - true\n| - false\n| - null\n";
+    let value = parse_ok(src);
+    let arr = get_array(&value, &["vals"]);
+    assert_eq!(arr.len(), 3);
+    assert_eq!(arr[0], Value::Bool(true));
+    assert_eq!(arr[1], Value::Bool(false));
+    assert_eq!(arr[2], Value::Null);
+}
+
+#[test]
+fn test_append_to_array_block() {
+    let src = "arr\n| - a\n| - b\n~arr\n| c = 1\n";
+    let value = parse_ok(src);
+    let arr = get_array(&value, &["arr"]);
+    assert_eq!(arr.len(), 3);
+    assert_eq!(arr[0], Value::String("a".into()));
+    assert_eq!(arr[1], Value::String("b".into()));
+    let obj = match &arr[2] {
+        Value::Object(fields) => fields,
+        _ => panic!("expected object"),
+    };
+    assert_eq!(obj[0].1, Value::Number(1.0));
+}
+
+#[test]
+fn test_number_like_string_is_str_not_number() {
+    let src = "key = 1.2.3\n";
+    let value = parse_ok(src);
+    assert_eq!(get_str(&value, &["key"]), "1.2.3");
+}
+
+#[test]
+fn test_blank_lines_within_array_block() {
+    let src = "vals\n| - a\n\n| - b\n| - c\n";
+    let value = parse_ok(src);
+    let arr = get_array(&value, &["vals"]);
+    assert_eq!(arr.len(), 3);
+    assert_eq!(arr[2], Value::String("c".into()));
+}
+
+#[test]
+fn test_empty_tagged_string() {
+    let src = "key = tag\"\"\n";
+    let value = parse_ok(src);
+    assert_eq!(get_value(&value, &["key"]), Value::Tagged("tag".into(), "".into()));
+}
+
+#[test]
+fn test_unicode_escape_non_hex_in_braces_is_error() {
+    let src = "key = \"\\u{GG}\"\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    assert!(result.is_err(), "non-hex in \\u{{}} should error");
+}
+
+#[test]
+fn test_syntax_error_includes_location() {
+    let src = "key key2 = val\n";
+    let tokens = Lexer::new(src).tokenize();
+    let result = Parser::new(tokens, src).parse();
+    let errors = result.unwrap_err();
+    assert!(errors[0].contains("1:"), "syntax-error missing location: {errors:?}");
+    assert!(errors[0].contains("syntax-error"), "wrong kind: {errors:?}");
 }
 
 // ============================================================================

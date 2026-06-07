@@ -378,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "spine-abi"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "cbindgen",
  "spine-rs",
@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "spine-rs"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "farben",
  "unicode-width",
@@ -394,7 +394,7 @@ dependencies = [
 
 [[package]]
 name = "spinelib"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 dependencies = [
  "serde",
  "serde_json",

@@ -14,9 +14,6 @@ _(that's it currently...)_
 > [!NOTE]
 > i do not want to make a C port, just use the abi. i am out of languages i know
 
-> [!NOTE]
-> `spinelib` (Rust) no longer depends on just the dylibs of `spine-abi`. it's not worth the hassle
-
 ---
 
 # Contributing

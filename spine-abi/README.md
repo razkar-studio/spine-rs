@@ -1,4 +1,4 @@
-# spine-c
+/home/razkar/Code/spine-rs/LICENSE-BSD# spine-c
 
 The C ABI for the Spine parser. Compiles to a `.so`/`.dll`/`.dylib` for use from any language.
 
@@ -37,8 +37,13 @@ If you have free time and when Spine develops more, you are more than welcome to
 
 ## License
 
-MIT OR Apache-2.0
+This project is licensed under the [BSD 3-Clause License](LICENSE) (or <https://opensource.org/license/bsd-3-clause>).
+
+In short, you’re free to use, modify, and distribute this software however you want, as long as you:
+
+* Keep the original copyright notice and license text.
+* Don’t use my name or the contributors’ names to promote forked products without permission.
 
 Cheers, RazkarStudio.
 
-Copyright © 2026 RazkarStudio. All rights reserved.
+Copyright © 2026 RazkarStudio and Spine Contributors. All rights reserved.

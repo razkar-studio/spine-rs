@@ -287,7 +287,8 @@ impl Lexer {
                 self.advance();
             }
 
-            if self.peek() == Some('"')
+            if pipes == depth
+                && self.peek() == Some('"')
                 && self.input.get(self.pos + 1).copied() == Some('"')
                 && self.input.get(self.pos + 2).copied() == Some('"')
             {
@@ -363,8 +364,13 @@ impl Lexer {
 
         if self.peek() == Some('"') {
             self.advance();
-            let content = self.read_tagged_content();
-            return Token::Tagged(s, content);
+            return match self.read_tagged_content() {
+                Some(content) => Token::Tagged(s, content),
+                None => {
+                    let msg = format!("{}:{} invalid escape in tagged literal", self.line, self.col);
+                    Token::Error(msg)
+                }
+            };
         }
 
         if self.peek() == Some('.') {
@@ -398,8 +404,13 @@ impl Lexer {
                         self.advance();
                     }
                     self.advance();
-                    let content = self.read_tagged_content();
-                    return Token::Tagged(full_tag, content);
+                    return match self.read_tagged_content() {
+                        Some(content) => Token::Tagged(full_tag, content),
+                        None => {
+                            let msg = format!("{}:{} invalid escape in tagged literal", self.line, self.col);
+                            Token::Error(msg)
+                        }
+                    };
                 }
             }
         }
@@ -425,13 +436,13 @@ impl Lexer {
         }
     }
 
-    fn read_tagged_content(&mut self) -> String {
+    fn read_tagged_content(&mut self) -> Option<String> {
         let mut content = String::new();
         while let Some(c) = self.peek() {
             match c {
                 '"' => {
                     self.advance();
-                    break;
+                    return Some(content);
                 }
                 '\\' => {
                     self.advance();
@@ -442,7 +453,7 @@ impl Lexer {
                         Some('0') => content.push('\0'),
                         Some('\\') => content.push('\\'),
                         Some('"') => content.push('"'),
-                        _ => {}
+                        _ => return None,
                     }
                 }
                 _ => {
@@ -451,7 +462,7 @@ impl Lexer {
                 }
             }
         }
-        content
+        None
     }
 
     fn typed_bare_value(s: &str) -> Token {
@@ -561,8 +572,11 @@ impl Lexer {
                 '/' => {
                     if self.input.get(self.pos + 1).copied() == Some('*') {
                         tokens.push((self.skip_block_comment(), line, col));
+                    } else if self.after_value_start {
+                        tokens.push((self.consume_bare_value(), line, col));
                     } else {
-                        tokens.push((self.lex_ident_or_keyword(), line, col));
+                        tokens.push((Token::Unknown('/'), line, col));
+                        self.advance();
                     }
                 }
                 '"' => tokens.push((self.lex_string(), line, col)),

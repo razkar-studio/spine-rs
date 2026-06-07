@@ -1,7 +1,13 @@
 [package]
 name = "spine-abi"
-version = "0.1.0"
+version = "0.1.0-beta.1"
+description = "C ABI bindings for spine-rs"
 edition = "2024"
+license = "BSD-3-Clause"
+rust-version = "1.85"
+repository = "https://codeberg.org/razkar/spine-rs"
+categories = ["parsing", "config", "development-tools::ffi"]
+keywords = ["ffi", "c-bindings", "spine", "config", "parser"]
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

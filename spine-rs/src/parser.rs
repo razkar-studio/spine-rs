@@ -164,6 +164,20 @@ impl Parser {
                         col,
                         depth,
                     );
+                } else {
+                    let current_source = self.get_source_line(line).to_string();
+                    let error = self.format_error(
+                        "syntax-error",
+                        &format!("expected identifier after '.' in '{name}.'"),
+                        &[(
+                            line,
+                            col,
+                            &current_source,
+                            name.len() + 1,
+                            Some("incomplete dotted path"),
+                        )],
+                    );
+                    self.errors.push(error);
                 }
             }
             Some(Token::Equals) => {
@@ -282,7 +296,21 @@ impl Parser {
                     );
                 }
             }
-            _ => {}
+            _ => {
+                let current_source = self.get_source_line(line).to_string();
+                let error = self.format_error(
+                    "syntax-error",
+                    &format!("unexpected token after '{name}'"),
+                    &[(
+                        line,
+                        col,
+                        &current_source,
+                        name.len(),
+                        Some("expected '=', '.', or newline"),
+                    )],
+                );
+                self.errors.push(error);
+            }
         }
     }
 
@@ -347,6 +375,19 @@ impl Parser {
                 }
             }
         } else {
+            let source = self.get_source_line(tilde_line).to_string();
+            let error = self.format_error(
+                "syntax-error",
+                "append requires a path after '~'",
+                &[(
+                    tilde_line,
+                    tilde_col,
+                    &source,
+                    1,
+                    Some("'~' used here"),
+                )],
+            );
+            self.errors.push(error);
             return;
         }
 
@@ -359,11 +400,25 @@ impl Parser {
             self.skip_comments_and_newlines();
         }
 
-        let entry = if child_fields.is_empty() {
-            Value::Null
-        } else {
-            Value::Object(child_fields)
-        };
+        if child_fields.is_empty() {
+            let source = self.get_source_line(tilde_line).to_string();
+            let tilde_len: usize =
+                path.iter().map(std::string::String::len).sum::<usize>() + path.len();
+            let error = self.format_error(
+                "syntax-error",
+                "append requires child statements after the path",
+                &[(
+                    tilde_line,
+                    tilde_col,
+                    &source,
+                    tilde_len,
+                    Some("append path ends here"),
+                )],
+            );
+            self.errors.push(error);
+            return;
+        }
+        let entry = Value::Object(child_fields);
 
         let (prefix, last) = path.split_at(path.len() - 1);
         let last = &last[0];

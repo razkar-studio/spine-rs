@@ -1,6 +1,6 @@
 # spinelib
 
-The Ergonomic Rust API for parsing Spine documents. Built on top of the `spine-c` C ABI.
+The Ergonomic Rust API for parsing Spine documents.
 
 ## Usage
 
@@ -35,8 +35,13 @@ Spine uses a boxed-based error format, which share the same similarities to pipe
 
 ## License
 
-MIT OR Apache-2.0
+This project is licensed under the [BSD 3-Clause License](LICENSE) (or <https://opensource.org/license/bsd-3-clause>).
+
+In short, you’re free to use, modify, and distribute this software however you want, as long as you:
+
+* Keep the original copyright notice and license text.
+* Don’t use my name or the contributors’ names to promote forked products without permission.
 
 Cheers, RazkarStudio.
 
-Copyright © 2026 RazkarStudio. All rights reserved.
+Copyright © 2026 RazkarStudio and Spine Contributors. All rights reserved.
