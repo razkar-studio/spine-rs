@@ -8,6 +8,7 @@ rust-version = "1.85"
 repository = "https://codeberg.org/razkar/spine-rs"
 categories = ["parsing", "config", "text-processing"]
 keywords = ["config", "parser", "spine", "configuration", "serialization"]
+readme = "README.md"
 
 [dependencies]
 farben = "0.20"

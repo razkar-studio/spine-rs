@@ -8,6 +8,7 @@ rust-version = "1.85"
 repository = "https://codeberg.org/razkar/spine-rs"
 categories = ["parsing", "config", "development-tools::ffi"]
 keywords = ["ffi", "c-bindings", "spine", "config", "parser"]
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

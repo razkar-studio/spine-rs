@@ -1,6 +1,10 @@
+<div align="center">
+
 # Spine
 
 Spine (`.spn`) is a structured data format designed to be readable, writable, and easy to process.
+
+</div>
 
 ```spine
 server

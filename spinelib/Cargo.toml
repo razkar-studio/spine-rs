@@ -8,6 +8,7 @@ rust-version = "1.85"
 repository = "https://codeberg.org/razkar/spine-rs"
 categories = ["parsing", "config", "encoding"]
 keywords = ["serde", "config", "spine", "serialization", "parser"]
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
