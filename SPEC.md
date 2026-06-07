@@ -1,5 +1,5 @@
 # Spine Specification
-Version 1.0.0-rc4
+Version 1.0.0
 
 License
 -------

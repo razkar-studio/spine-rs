@@ -209,8 +209,8 @@ void spine_free_format_details(SpineFormatDetails details);
 /// value or error information:
 ///
 /// ```json
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":true,"value":{...}}
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":false,"errors":[...]}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":false,"errors":[...]}
 /// ```
 ///
 /// The returned string must be freed with `spine_free_string`.

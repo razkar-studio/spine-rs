@@ -72,7 +72,7 @@ pub struct FormatDetails {
 pub fn format_details() -> FormatDetails {
     FormatDetails {
         version: env!("CARGO_PKG_VERSION").to_string(),
-        spec: "1.0-rc.2".to_string(),
+        spec: "1.0.0".to_string(),
         backend: "native".to_string(),
     }
 }
@@ -85,8 +85,8 @@ pub fn format_details() -> FormatDetails {
 /// # Example output
 ///
 /// ```json
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":true,"value":{...}}
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":false,"errors":[...]}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":false,"errors":[...]}
 /// ```
 #[must_use]
 pub fn parse_to_json(input: &str) -> String {
@@ -99,7 +99,7 @@ pub fn parse_to_json(input: &str) -> String {
     write_json_str("version", &mut json);
     json.push_str(":\"0.1.0\",");
     write_json_str("spec", &mut json);
-    json.push_str(":\"1.0-rc.2\",");
+    json.push_str(":\"1.0.0\",");
     write_json_str("backend", &mut json);
     json.push_str(":\"native\"");
 

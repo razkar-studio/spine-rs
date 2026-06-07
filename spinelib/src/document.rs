@@ -56,9 +56,7 @@ impl Document {
     /// Returns `None` if the document has no root value.
     #[must_use]
     pub fn to_string(&self) -> Option<String> {
-        self.root
-            .as_ref()
-            .map(crate::writer::to_string_inner)
+        self.root.as_ref().map(crate::writer::to_string_inner)
     }
 
     /// Parses a Spine string, panicking on parse errors.

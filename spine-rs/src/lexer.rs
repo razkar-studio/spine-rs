@@ -370,7 +370,9 @@ impl Lexer {
 
         if self.peek() == Some('"') {
             self.advance();
-            return if let Some(content) = self.read_tagged_content() { Token::Tagged(s, content) } else {
+            return if let Some(content) = self.read_tagged_content() {
+                Token::Tagged(s, content)
+            } else {
                 let msg = format!(
                     "{}:{} invalid escape in tagged literal",
                     self.line, self.col
@@ -409,7 +411,9 @@ impl Lexer {
                         self.advance();
                     }
                     self.advance();
-                    return if let Some(content) = self.read_tagged_content() { Token::Tagged(full_tag, content) } else {
+                    return if let Some(content) = self.read_tagged_content() {
+                        Token::Tagged(full_tag, content)
+                    } else {
                         let msg = format!(
                             "{}:{} invalid escape in tagged literal",
                             self.line, self.col

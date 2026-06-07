@@ -451,7 +451,7 @@ pub unsafe extern "C" fn spine_format_details() -> SpineFormatDetails {
 
     SpineFormatDetails {
         version: to_c(env!("CARGO_PKG_VERSION")),
-        spec: to_c("1.0-rc.2"),
+        spec: to_c("1.0.0"),
         backend: to_c(backend),
     }
 }
@@ -477,8 +477,8 @@ pub unsafe extern "C" fn spine_free_format_details(details: SpineFormatDetails) 
 /// value or error information:
 ///
 /// ```json
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":true,"value":{...}}
-/// {"version":"0.1.0","spec":"1.0-rc.2","backend":"native","ok":false,"errors":[...]}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":true,"value":{...}}
+/// {"version":"0.1.0","spec":"1.0.0","backend":"native","ok":false,"errors":[...]}
 /// ```
 ///
 /// The returned string must be freed with `spine_free_string`.
@@ -514,7 +514,7 @@ pub unsafe extern "C" fn spine_parse_json(input: *const c_char) -> *mut c_char {
     json.push_str(env!("CARGO_PKG_VERSION"));
     json.push_str("\",");
     write_json_str("spec", &mut json);
-    json.push_str(":\"1.0-rc.2\",");
+    json.push_str(":\"1.0.0\",");
     write_json_str("backend", &mut json);
     json.push_str(":\"");
     json.push_str(backend);

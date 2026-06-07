@@ -1,6 +1,6 @@
 [package]
 name = "spine-abi"
-version = "0.1.0-beta.1"
+version = "0.1.0+spec-1.0.0"
 description = "C ABI bindings for spine-rs"
 edition = "2024"
 license = "BSD-3-Clause"
