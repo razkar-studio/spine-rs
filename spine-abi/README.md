@@ -1,6 +1,8 @@
-/home/razkar/Code/spine-rs/LICENSE-BSD# spine-c
+# spine-abi
 
-The C ABI for the Spine parser. Compiles to a `.so`/`.dll`/`.dylib` for use from any language.
+The C ABI for the Spine parser. Compiles to a `.so`/`.dll`/`.dylib` and `.wasm` for use from any language.
+
+> This crate is published to crates.io to reserve the namespace. Most users should download the pre-built `.so`/`.dll`/`.dylib`/`.wasm` artifacts from the GitHub CI Artifacts workflow runs instead of depending on this crate directly.
 
 ## Usage from C
 
